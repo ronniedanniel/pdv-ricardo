@@ -219,10 +219,21 @@
 <div class="modal-overlay" id="modal-pick-table">
   <div class="modal-box">
     <div class="modal-header">
-      <h3>Selecionar Mesa</h3>
+      <h3>Selecionar Mesa / Cliente</h3>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-pick-table')">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="padding:16px;">
+      <!-- Atalhos de abertura rápida -->
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:16px;">
+        <div style="font-size:11px; color:var(--text3); font-weight:700; text-transform:uppercase; margin-bottom:4px; text-align:left;">Abrir Nova Comanda</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="pickTableNewClient()" style="justify-content:center;font-size:11px;padding:8px 6px;">👤 + Cliente Avulso</button>
+          <button class="btn btn-secondary btn-sm" onclick="pickTableRegisteredCustomer()" style="justify-content:center;font-size:11px;padding:8px 6px;">👥 + Cliente Cadastrado</button>
+        </div>
+        <button class="btn btn-secondary btn-sm btn-block" onclick="pickTableNewTable()" style="justify-content:center;font-size:11px;padding:8px 6px;margin-top:2px;">🪑 + Abrir Nova Mesa</button>
+      </div>
+      
+      <div style="font-size:11px; color:var(--text3); font-weight:700; text-transform:uppercase; margin-bottom:8px; text-align:left;">Comandas em Aberto / Disponíveis</div>
       <div class="tables-grid" id="pick-table-grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr));"></div>
     </div>
   </div>
@@ -438,6 +449,7 @@ let payMethod = 'dinheiro';
 let editingNoteItemId = null;
 let selectedFiadoCustomer = null;
 let isQuickFiado = false;
+let isPickingForTablePicker = false;
 
 async function init() {
   await initDB();
@@ -1346,6 +1358,13 @@ function pickCustomer(name, id) {
         }, 600);
       }
     });
+  } else if (isPickingForTablePicker) {
+    isPickingForTablePicker = false;
+    closeModal('modal-pick-customer');
+    
+    dbAdd('tables', { type: 'client', number: null, capacity: 1, label: name, status: 'occupied' }).then(async (newId) => {
+      await selectTable(newId);
+    });
   } else {
     selectCustomerName(name, id);
     closeModal('modal-pick-customer');
@@ -1657,6 +1676,38 @@ function quickFiadoBalcao() {
   setTimeout(() => {
     document.getElementById('fiado-customer-input').focus();
   }, 100);
+}
+
+async function pickTableNewClient() {
+  const name = prompt('Nome do Cliente Avulso:');
+  if (!name || !name.trim()) return;
+  const newId = await dbAdd('tables', { type: 'client', number: null, capacity: 1, label: name.trim(), status: 'occupied' });
+  closeModal('modal-pick-table');
+  await selectTable(newId);
+}
+
+async function pickTableRegisteredCustomer() {
+  closeModal('modal-pick-table');
+  isPickingForTablePicker = true;
+  await openCustomerPicker();
+}
+
+async function pickTableNewTable() {
+  const numStr = prompt('Número da Mesa:');
+  if (!numStr) return;
+  const number = parseInt(numStr);
+  if (!number || number < 1) { toast('Número de mesa inválido', 'error'); return; }
+  
+  const allTables = await dbGetAll('tables');
+  let table = allTables.find(t => t.number === number && t.type !== 'client');
+  
+  if (!table) {
+    const nid = await dbAdd('tables', { number, capacity: 4, status: 'free', label: `Mesa ${number}` });
+    table = await dbGet('tables', nid);
+  }
+  
+  closeModal('modal-pick-table');
+  await selectTable(table.id);
 }
 
 init();
