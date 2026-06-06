@@ -173,11 +173,22 @@
       </button>
     </div>
 
+    <!-- Limpar Clientes -->
+    <div class="card mb-20" style="border-color:rgba(239,68,68,.3);">
+      <div class="section-title mb-8" style="color:var(--red);">Limpar Clientes e Fiados</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
+        Remove <strong>todos os clientes cadastrados</strong> e seus históricos de fiado. Seus produtos, estoque, mesas e vendas gerais <strong>não serão apagados</strong>.
+      </p>
+      <button class="btn btn-secondary" style="border-color:var(--red);color:var(--red);" onclick="clearAllCustomers()">
+        🗑️ Limpar Todos os Clientes e Fiados
+      </button>
+    </div>
+
     <!-- Resetar tudo -->
     <div class="card" style="border-color:rgba(239,68,68,.4);">
       <div class="section-title mb-8" style="color:var(--red);">Zona de Perigo</div>
       <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
-        Apaga <strong>absolutamente tudo</strong>: vendas, estoque, produtos, categorias, mesas, histórico de caixa. Ação irreversível.
+        Apaga <strong>absolutamente tudo</strong>: vendas, estoque, produtos, categorias, mesas, clientes, fiados, funcionários e histórico de caixa. Ação irreversível.
       </p>
       <button class="btn btn-danger" onclick="resetAll()">
         ⚠️ Apagar Todos os Dados
@@ -305,21 +316,58 @@ async function clearSampleData() {
   );
 }
 
+async function clearAllCustomers() {
+  showConfirm(
+    '🗑️',
+    'Limpar TODOS os Clientes e Fiados?',
+    'Isso removerá permanentemente todos os clientes e históricos de fiado. Vendas e produtos gerais serão preservados.',
+    true,
+    async () => {
+      try {
+        const stores = ['customers', 'fiado'];
+        for (const s of stores) {
+          const all = await dbGetAll(s);
+          for (const item of all) await dbDelete(s, item.id);
+        }
+        
+        // Também remove comandas temporárias do tipo cliente das mesas
+        const tables = await dbGetAll('tables');
+        for (const t of tables) {
+          if (t.type === 'client') {
+            await dbDelete('tables', t.id);
+          }
+        }
+        
+        toast('Todos os clientes e fiados foram removidos!', 'success');
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (err) {
+        console.error(err);
+        toast('Erro ao limpar clientes', 'error');
+      }
+    }
+  );
+}
+
 async function resetAll() {
   showConfirm(
     '⚠️',
     'Apagar TODOS os dados?',
-    'Isso vai apagar permanentemente tudo: vendas, produtos, estoque, caixa. Ação irreversível.',
+    'Isso vai apagar permanentemente tudo: vendas, produtos, estoque, caixa, clientes, fiados e funcionários. Ação irreversível.',
     true,
     async () => {
-      const stores = ['products', 'categories', 'tables', 'orders', 'order_items', 'sales', 'sale_items', 'stock_movements', 'cash_sessions'];
-      for (const s of stores) {
-        const all = await dbGetAll(s);
-        for (const item of all) await dbDelete(s, item.id);
+      try {
+        const stores = ['products', 'categories', 'tables', 'orders', 'order_items', 'sales', 'sale_items', 'stock_movements', 'cash_sessions', 'customers', 'fiado', 'users'];
+        for (const s of stores) {
+          const all = await dbGetAll(s);
+          for (const item of all) await dbDelete(s, item.id);
+        }
+        await dbSetSetting('seeded', false);
+        toast('Todos os dados foram apagados.', 'info');
+        setTimeout(() => window.location.reload(), 1500);
+      } catch (err) {
+        console.error(err);
+        toast('Erro ao apagar todos os dados', 'error');
       }
-      await dbSetSetting('seeded', false);
-      toast('Todos os dados foram apagados.', 'info');
-      setTimeout(() => window.location.reload(), 1500);
     }
   );
 }
