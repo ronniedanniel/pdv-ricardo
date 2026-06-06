@@ -37,6 +37,44 @@
     font-weight: 600;
   }
   .table-select-btn.has-table { border-color: var(--accent); color: var(--accent); }
+  .menu-option-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    transition: all 0.2s ease;
+  }
+  .menu-option-btn:hover {
+    background: var(--bg4);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .menu-option-btn .opt-icon {
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: rgba(245, 158, 11, 0.08);
+    border-radius: 8px;
+    color: var(--accent);
+  }
+  .menu-option-btn.opt-blue .opt-icon {
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--blue);
+  }
+  .menu-option-btn.opt-green .opt-icon {
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--green);
+  }
 </style>
 </head>
 <body>
@@ -65,7 +103,7 @@
 
 <div class="main" style="overflow:hidden;">
   <div class="pdv-topbar">
-    <button class="table-select-btn" id="btn-select-table" onclick="openTablePicker()">
+    <button class="table-select-btn" id="btn-select-table" onclick="handleTopBarClick()">
       🪑 <span id="table-label">Selecionar Mesa</span>
     </button>
     <div class="search-bar" style="flex:1;">
@@ -401,6 +439,84 @@
   </div>
 </div>
 
+<!-- Modal: Opções de Atendimento -->
+<div class="modal-overlay" id="modal-balcao-menu">
+  <div class="modal-box" style="max-width: 400px;">
+    <div class="modal-header">
+      <h3>Opções de Atendimento</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-balcao-menu')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; padding:16px; text-align:left;">
+      <!-- Opção 1: Venda Rápida -->
+      <button class="menu-option-btn opt-blue" onclick="selectBalcaoDirect()">
+        <span class="opt-icon">⚡</span>
+        <div>
+          <strong style="display:block; font-size:14px; color:var(--text);">Venda Rápida / Balcão</strong>
+          <span style="font-size:11px; color:var(--text3);">Venda rápida direta sem identificar cliente</span>
+        </div>
+      </button>
+
+      <!-- Opção 2: Cliente Cadastrado -->
+      <button class="menu-option-btn" onclick="selectBalcaoRegistered()">
+        <span class="opt-icon">👥</span>
+        <div>
+          <strong style="display:block; font-size:14px; color:var(--text);">Cliente Cadastrado</strong>
+          <span style="font-size:11px; color:var(--text3);">Buscar cliente já existente no banco de dados</span>
+        </div>
+      </button>
+
+      <!-- Opção 3: Cliente Avulso -->
+      <button class="menu-option-btn" onclick="selectBalcaoAvulso()">
+        <span class="opt-icon">👤</span>
+        <div>
+          <strong style="display:block; font-size:14px; color:var(--text);">Cliente Avulso (Identificado)</strong>
+          <span style="font-size:11px; color:var(--text3);">Vender para um cliente temporário digitando o nome</span>
+        </div>
+      </button>
+
+      <!-- Opção 4: Cadastrar Novo Cliente -->
+      <button class="menu-option-btn opt-green" onclick="selectBalcaoRegisterNew()">
+        <span class="opt-icon">➕</span>
+        <div>
+          <strong style="display:block; font-size:14px; color:var(--text);">Cadastrar Novo Cliente</strong>
+          <span style="font-size:11px; color:var(--text3);">Cadastrar novo cliente no sistema e iniciar venda</span>
+        </div>
+      </button>
+
+      <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+
+      <!-- Opção 5: Mesas / Outras Comandas -->
+      <button class="btn btn-primary btn-block" style="padding:12px; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="selectBalcaoShowTables()">
+        <span>🪑</span> Ver Mesas e Comandas Ativas
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cadastrar Cliente Rápido -->
+<div class="modal-overlay" id="modal-quick-add-customer">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-header">
+      <h3>Cadastrar Cliente</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-quick-add-customer')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px; text-align:left;">
+      <div class="form-group mb-12">
+        <label>Nome do Cliente *</label>
+        <input type="text" id="quick-cust-name" placeholder="Ex: João Silva">
+      </div>
+      <div class="form-group mb-12">
+        <label>Telefone (opcional)</label>
+        <input type="text" id="quick-cust-phone" placeholder="Ex: (21) 99999-9999">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-quick-add-customer')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveQuickCustomer()">Salvar & Iniciar Venda</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Modal -->
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal-box" style="max-width:360px;">
@@ -531,7 +647,7 @@ async function selectTable(tableId) {
   currentTable = await dbGet('tables', tableId);
   let label = currentTable ? (currentTable.label || 'Mesa ' + currentTable.number) : '?';
   if (currentTable && currentTable.number === 0) {
-    label = 'Balcão';
+    label = 'Balcão / Venda Rápida';
   }
   document.getElementById('table-label').textContent = label;
   document.getElementById('btn-select-table').classList.add('has-table');
@@ -1708,6 +1824,77 @@ async function pickTableNewTable() {
   
   closeModal('modal-pick-table');
   await selectTable(table.id);
+}
+
+function handleTopBarClick() {
+  if (!currentTable || currentTable.number === 0) {
+    openBalcaoMenu();
+  } else {
+    openTablePicker();
+  }
+}
+
+function openBalcaoMenu() {
+  openModal('modal-balcao-menu');
+}
+
+async function selectBalcaoDirect() {
+  closeModal('modal-balcao-menu');
+  const tables = await dbGetAll('tables');
+  const balcao = tables.find(t => t.number === 0);
+  if (balcao) {
+    await selectTable(balcao.id);
+  }
+}
+
+async function selectBalcaoRegistered() {
+  closeModal('modal-balcao-menu');
+  isPickingForTablePicker = true;
+  await openCustomerPicker();
+}
+
+async function selectBalcaoAvulso() {
+  closeModal('modal-balcao-menu');
+  await pickTableNewClient();
+}
+
+function selectBalcaoRegisterNew() {
+  closeModal('modal-balcao-menu');
+  setVal('quick-cust-name', '');
+  setVal('quick-cust-phone', '');
+  openModal('modal-quick-add-customer');
+}
+
+async function saveQuickCustomer() {
+  const name = val('quick-cust-name').trim();
+  const phone = val('quick-cust-phone').trim();
+  if (!name) {
+    toast('Informe o nome do cliente', 'error');
+    return;
+  }
+  
+  try {
+    const customerId = await dbAdd('customers', {
+      name,
+      phone,
+      createdAt: new Date().toISOString()
+    });
+    
+    allCustomers = await dbGetAll('customers');
+    closeModal('modal-quick-add-customer');
+    
+    const newId = await dbAdd('tables', { type: 'client', number: null, capacity: 1, label: name, status: 'occupied' });
+    await selectTable(newId);
+    toast(`Cliente ${name} cadastrado e selecionado!`, 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao cadastrar cliente', 'error');
+  }
+}
+
+function selectBalcaoShowTables() {
+  closeModal('modal-balcao-menu');
+  openTablePicker();
 }
 
 init();
