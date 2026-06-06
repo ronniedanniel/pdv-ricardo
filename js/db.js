@@ -6,8 +6,18 @@ let isSupabaseActive = false;
 let supabaseClient = null;
 
 async function initDB() {
-  const url = localStorage.getItem('supabase_url');
-  const key = localStorage.getItem('supabase_key');
+  const disabled = localStorage.getItem('supabase_disabled') === 'true';
+  let url = localStorage.getItem('supabase_url');
+  let key = localStorage.getItem('supabase_key');
+  
+  if (!url || !key) {
+    if (disabled) {
+      await initIndexedDB();
+      return;
+    }
+    url = 'https://muhpcowyjzsfmxzeprva.supabase.co';
+    key = 'sb_publishable_MuD6E_cwyJhJcX9Alz4zxw_qgY_40Cp';
+  }
   
   if (url && key) {
     try {

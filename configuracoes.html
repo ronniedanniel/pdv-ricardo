@@ -225,8 +225,9 @@ async function init() {
   await loadEmployees();
 
   // Configuração e status do Supabase
-  const url = localStorage.getItem('supabase_url') || '';
-  const key = localStorage.getItem('supabase_key') || '';
+  const disabled = localStorage.getItem('supabase_disabled') === 'true';
+  const url = localStorage.getItem('supabase_url') || (disabled ? '' : 'https://muhpcowyjzsfmxzeprva.supabase.co');
+  const key = localStorage.getItem('supabase_key') || (disabled ? '' : 'sb_publishable_MuD6E_cwyJhJcX9Alz4zxw_qgY_40Cp');
   setVal('cfg-supabase-url', url);
   setVal('cfg-supabase-key', key);
 
@@ -236,7 +237,7 @@ async function init() {
   if (isSupabaseActive) {
     statusBadge.innerHTML = '<span class="badge badge-green">🟢 Online (Sincronizado com Supabase)</span>';
     btnDisconnect.style.display = '';
-  } else if (url && key) {
+  } else if (url && key && !disabled) {
     statusBadge.innerHTML = '<span class="badge badge-red">🔴 Erro ao Conectar (Modo Local Ativo)</span>';
     btnDisconnect.style.display = '';
   } else {
@@ -440,6 +441,7 @@ async function connectSupabase() {
 
     localStorage.setItem('supabase_url', url);
     localStorage.setItem('supabase_key', key);
+    localStorage.removeItem('supabase_disabled');
     
     toast('Conectado ao Supabase com sucesso!', 'success');
     setTimeout(() => {
@@ -460,6 +462,7 @@ function disconnectSupabase() {
     () => {
       localStorage.removeItem('supabase_url');
       localStorage.removeItem('supabase_key');
+      localStorage.setItem('supabase_disabled', 'true');
       toast('Desconectado! Retornando ao modo offline local...', 'info');
       setTimeout(() => {
         window.location.reload();
