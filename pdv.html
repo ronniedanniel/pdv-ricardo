@@ -371,6 +371,22 @@
   </div>
 </div>
 
+<!-- Modal: Venda Rápida Balcão -->
+<div class="modal-overlay" id="modal-quick-balcao">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-header">
+      <h3>Venda Rápida</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-quick-balcao')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:20px 10px;display:flex;flex-direction:column;gap:12px;">
+      <p style="font-size:14px;margin-bottom:8px;color:var(--text2);">Item adicionado ao carrinho!</p>
+      <button class="btn btn-success btn-lg btn-block" onclick="quickPayBalcao()">💵 Pagar Agora</button>
+      <button class="btn btn-primary btn-lg btn-block" onclick="quickFiadoBalcao()">👤 Cobrar Fiado</button>
+      <button class="btn btn-secondary btn-block" onclick="closeModal('modal-quick-balcao')">🛒 Adicionar Mais Itens</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Modal -->
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal-box" style="max-width:360px;">
@@ -509,8 +525,6 @@ async function selectTable(tableId) {
   if (!order) {
     const oid = await dbAdd('orders', { tableId, status: 'open', createdAt: new Date().toISOString() });
     order = await dbGet('orders', oid);
-    // Mark table as occupied
-    await dbPut('tables', { ...currentTable, status: 'occupied' });
   }
   currentOrderId = order.id;
   document.getElementById('order-time').textContent = 'Aberto: ' + fmtTime(order.createdAt);
@@ -518,6 +532,10 @@ async function selectTable(tableId) {
   // If there were temporary items in memory, save them to this order!
   if (orderItems.length > 0 && !orderItems[0].orderId) {
     await saveTempCartToOrder(currentOrderId);
+    if (currentTable && currentTable.status === 'free') {
+      currentTable.status = 'occupied';
+      await dbPut('tables', currentTable);
+    }
     toast('Itens do carrinho salvos na comanda selecionada!', 'success');
   }
 
@@ -545,6 +563,10 @@ async function addProduct(productId) {
   if (!product) return;
 
   if (currentOrderId) {
+    if (currentTable && currentTable.status === 'free') {
+      currentTable.status = 'occupied';
+      await dbPut('tables', currentTable);
+    }
     const existing = orderItems.find(i => i.productId === productId && !i.note);
     if (existing) {
       existing.qty++;
@@ -571,6 +593,10 @@ async function addProduct(productId) {
     }
   }
   renderOrder();
+
+  if (currentTable && currentTable.number === 0) {
+    openModal('modal-quick-balcao');
+  }
 }
 
 async function changeQty(itemId, delta) {
@@ -582,6 +608,10 @@ async function changeQty(itemId, delta) {
     if (item.qty <= 0) {
       await dbDelete('order_items', itemId);
       orderItems = orderItems.filter(i => i.id !== itemId);
+      if (orderItems.length === 0 && currentTable && currentTable.status === 'occupied') {
+        currentTable.status = 'free';
+        await dbPut('tables', currentTable);
+      }
     } else {
       await dbPut('order_items', item);
     }
@@ -733,6 +763,10 @@ function clearOrder() {
       orderItems = [];
       setVal('customer-name-input', '');
       await saveCustomerNameToOrder();
+      if (currentTable && currentTable.status === 'occupied') {
+        currentTable.status = 'free';
+        await dbPut('tables', currentTable);
+      }
     } else {
       orderItems = [];
       setVal('customer-name-input', '');
@@ -748,6 +782,10 @@ async function removeItemCompletely(itemId) {
       await dbDelete('order_items', itemId);
     }
     orderItems = orderItems.filter(i => i.id !== itemId);
+    if (orderItems.length === 0 && currentTable && currentTable.status === 'occupied') {
+      currentTable.status = 'free';
+      await dbPut('tables', currentTable);
+    }
     renderOrder();
     toast('Item removido');
   });
@@ -1539,6 +1577,17 @@ async function confirmLaunch() {
   setTimeout(() => {
     window.location.href = 'mesas.html';
   }, 600);
+}
+
+function quickPayBalcao() {
+  closeModal('modal-quick-balcao');
+  openPayment();
+}
+
+function quickFiadoBalcao() {
+  closeModal('modal-quick-balcao');
+  openPayment();
+  setSinglePayment('fiado');
 }
 
 init();
