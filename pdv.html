@@ -576,7 +576,7 @@ async function init() {
 
   categories = await dbGetAll('categories');
   products = (await dbGetAll('products')).filter(p => p.active);
-  allCustomers = await dbGetAll('customers');
+  allCustomers = (await dbGetAll('customers')).filter(c => c.active !== false);
 
   renderCatTabs();
   renderProducts();
@@ -964,7 +964,7 @@ async function openTablePicker() {
   `).join('');
 
   if (clientTables.length > 0) {
-    const customers = await dbGetAll('customers');
+    const customers = (await dbGetAll('customers')).filter(c => c.active !== false);
     const registeredNames = new Set(customers.map(c => c.name.toLowerCase().trim()));
     html += `
       <div style="grid-column: 1/-1; margin: 12px 0 6px 0; font-size: 13px; font-weight: bold; color: var(--text2); display: flex; align-items: center; gap: 8px;">
@@ -1424,7 +1424,7 @@ async function transferOrderToTable() {
 }
 
 async function openCustomerPicker() {
-  allCustomers = await dbGetAll('customers');
+  allCustomers = (await dbGetAll('customers')).filter(c => c.active !== false);
   setVal('pick-customer-search', '');
   renderPickCustomerList();
   openModal('modal-pick-customer');

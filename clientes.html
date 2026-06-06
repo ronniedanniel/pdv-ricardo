@@ -64,9 +64,10 @@
 
     <!-- Tabs -->
     <div class="tabs mb-16" id="view-tabs">
-      <button class="tab-btn active" onclick="setView('todos', this)">Todos</button>
+      <button class="tab-btn active" onclick="setView('todos', this)">Ativos</button>
       <button class="tab-btn" onclick="setView('fiado', this)">Com Fiado Aberto</button>
       <button class="tab-btn" onclick="setView('sem_fiado', this)">Sem Fiado</button>
+      <button class="tab-btn" onclick="setView('inativos', this)">Desativados</button>
     </div>
 
     <!-- Lista -->
@@ -96,10 +97,17 @@
         <label>Observações</label>
         <textarea id="customer-notes" rows="2" placeholder="Ex: cliente frequente, preferências..."></textarea>
       </div>
+      <div class="form-group" id="group-customer-active" style="display:none; align-items:center; gap:8px; margin-top:8px;">
+        <input type="checkbox" id="customer-active" style="width:auto; margin:0;">
+        <label for="customer-active" style="margin:0; text-transform:none; font-weight:normal; cursor:pointer;">Cliente Ativo</label>
+      </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-customer')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveCustomer()">Salvar</button>
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+      <button class="btn btn-danger btn-sm" id="btn-purge-customer" style="display:none;" onclick="purgeCustomer()">🗑️ Expurgar do Banco</button>
+      <div class="flex" style="gap:8px; margin-left:auto;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-customer')">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveCustomer()">Salvar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -233,8 +241,15 @@ function renderList() {
   const q = (val('search-input')).toLowerCase();
   let list = [...allCustomers];
 
-  if (currentView === 'fiado') list = list.filter(c => c.balance > 0);
-  else if (currentView === 'sem_fiado') list = list.filter(c => c.balance === 0);
+  if (currentView === 'todos') {
+    list = list.filter(c => c.active !== false);
+  } else if (currentView === 'fiado') {
+    list = list.filter(c => c.active !== false && c.balance > 0);
+  } else if (currentView === 'sem_fiado') {
+    list = list.filter(c => c.active !== false && c.balance === 0);
+  } else if (currentView === 'inativos') {
+    list = list.filter(c => c.active === false);
+  }
 
   if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)));
 
@@ -243,20 +258,20 @@ function renderList() {
   if (!list.length) {
     container.innerHTML = `<div class="card"><div class="empty-state">
       <div class="empty-icon">👥</div>
-      <p>${q ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado ainda'}</p>
+      <p>${q ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado nesta categoria'}</p>
     </div></div>`;
     return;
   }
 
   container.innerHTML = list.map(c => `
-    <div class="card mb-16" style="border-left:3px solid ${c.balance > 0 ? 'var(--red)' : 'var(--border)'};">
+    <div class="card mb-16" style="border-left:3px solid ${c.balance > 0 ? 'var(--red)' : (c.active === false ? 'var(--text3)' : 'var(--border)')}; opacity: ${c.active === false ? '0.7' : '1'};">
       <div class="flex items-center justify-between">
         <div style="flex:1;">
           <div class="flex items-center" style="gap:10px;margin-bottom:4px;">
             <span style="font-size:16px;font-weight:700;">${c.name}</span>
-            ${c.balance > 0
-              ? `<span class="badge badge-red">Fiado: ${fmt(c.balance)}</span>`
-              : `<span class="badge badge-green">Sem fiado</span>`}
+            ${c.active === false 
+              ? `<span class="badge badge-gray">Desativado</span>` 
+              : (c.balance > 0 ? `<span class="badge badge-red">Fiado: ${fmt(c.balance)}</span>` : `<span class="badge badge-green">Sem fiado</span>`)}
           </div>
           <div style="font-size:12px;color:var(--text3);">
             ${c.phone ? '📱 ' + c.phone + ' &nbsp;' : ''}
@@ -267,7 +282,10 @@ function renderList() {
         <div class="flex" style="gap:6px;">
           <button class="btn btn-secondary btn-sm" onclick="viewFiado(${c.id})">📋 Fiado</button>
           <button class="btn btn-ghost btn-sm" onclick="editCustomer(${c.id})" title="Editar">✏️</button>
-          <button class="btn btn-ghost btn-sm" onclick="deleteCustomer(${c.id})" title="Excluir">🗑️</button>
+          ${c.active !== false 
+            ? `<button class="btn btn-ghost btn-sm" onclick="deleteCustomer(${c.id})" title="Desativar">🗑️</button>`
+            : ''
+          }
         </div>
       </div>
     </div>
@@ -279,6 +297,8 @@ function openAddCustomer() {
   setVal('customer-name', '');
   setVal('customer-phone', '');
   setVal('customer-notes', '');
+  document.getElementById('group-customer-active').style.display = 'none';
+  document.getElementById('btn-purge-customer').style.display = 'none';
   document.getElementById('modal-customer-title').textContent = 'Novo Cliente';
   openModal('modal-customer');
 }
@@ -290,6 +310,9 @@ async function editCustomer(id) {
   setVal('customer-name', c.name);
   setVal('customer-phone', c.phone || '');
   setVal('customer-notes', c.notes || '');
+  document.getElementById('group-customer-active').style.display = 'flex';
+  document.getElementById('customer-active').checked = c.active !== false;
+  document.getElementById('btn-purge-customer').style.display = '';
   document.getElementById('modal-customer-title').textContent = 'Editar Cliente';
   openModal('modal-customer');
 }
@@ -298,7 +321,12 @@ async function saveCustomer() {
   const name = val('customer-name').trim();
   if (!name) { toast('Informe o nome do cliente', 'error'); return; }
   const id = parseInt(val('customer-id')) || null;
-  const data = { name, phone: val('customer-phone'), notes: val('customer-notes') };
+  
+  const active = document.getElementById('group-customer-active').style.display === 'flex'
+    ? document.getElementById('customer-active').checked
+    : true;
+    
+  const data = { name, phone: val('customer-phone'), notes: val('customer-notes'), active };
 
   if (id) {
     const existing = await dbGet('customers', id);
@@ -316,12 +344,29 @@ async function deleteCustomer(id) {
   const c = await dbGet('customers', id);
   const balance = await getCustomerFiadoBalance(id);
   if (balance > 0) {
-    toast('Cliente tem fiado em aberto. Quite antes de excluir.', 'error');
+    toast('Cliente tem fiado em aberto. Quite antes de desativar.', 'error');
     return;
   }
-  confirm('Excluir cliente ' + c.name + '?', async () => {
+  confirm('Deseja desativar o cliente ' + c.name + '? (Seu histórico de vendas e fiados será mantido para estatísticas)', async () => {
+    c.active = false;
+    await dbPut('customers', c);
+    toast('Cliente desativado com sucesso');
+    await loadAll();
+  });
+}
+
+async function purgeCustomer() {
+  const id = parseInt(val('customer-id'));
+  if (!id) return;
+  const c = await dbGet('customers', id);
+  if (!c) return;
+  
+  const warningMsg = `ATENÇÃO: Esta ação é definitiva e irreversível!\n\nTem certeza de que deseja EXPURGAR permanentemente todas as informações e registros de histórico do cliente "${c.name}" do banco de dados?\n\nIsso excluirá fisicamente o cliente e todos os seus registros de fiado vinculados.`;
+  
+  confirm(warningMsg, async () => {
     await dbDelete('customers', id);
-    toast('Cliente removido');
+    toast('Cliente e histórico expurgados com sucesso!');
+    closeModal('modal-customer');
     await loadAll();
   });
 }

@@ -145,7 +145,7 @@ async function init() {
 
 async function loadTables() {
   const allTables = await dbGetAll('tables');
-  const allCustomers = await dbGetAll('customers');
+  const allCustomers = (await dbGetAll('customers')).filter(c => c.active !== false);
   const registeredNames = new Set(allCustomers.map(c => c.name.toLowerCase().trim()));
   
   // Sort physical tables by number, and client tables alphabetically by label
@@ -261,7 +261,7 @@ function editTable(e, id) {
     setVal('table-label', t.label || '');
     
     // Carrega clientes cadastrados
-    const customers = await dbGetAll('customers');
+    const customers = (await dbGetAll('customers')).filter(c => c.active !== false);
     customers.sort((a, b) => a.name.localeCompare(b.name));
     const select = document.getElementById('registered-client-select');
     if (select) {
@@ -349,7 +349,7 @@ async function openAddTableModal() {
   setVal('table-label', '');
   
   // Carrega clientes cadastrados
-  const customers = await dbGetAll('customers');
+  const customers = (await dbGetAll('customers')).filter(c => c.active !== false);
   customers.sort((a, b) => a.name.localeCompare(b.name));
   const select = document.getElementById('registered-client-select');
   if (select) {

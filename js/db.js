@@ -455,9 +455,9 @@ async function findOrCreateCustomer(name) {
   const trimmed = name.trim();
   if (!trimmed) return null;
   const all = await dbGetAll('customers');
-  const found = all.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
+  const found = all.find(c => c.name.toLowerCase() === trimmed.toLowerCase() && c.active !== false);
   if (found) return found;
-  const id = await dbAdd('customers', { name: trimmed, phone: '', notes: '', createdAt: new Date().toISOString() });
+  const id = await dbAdd('customers', { name: trimmed, phone: '', notes: '', active: true, createdAt: new Date().toISOString() });
   return dbGet('customers', id);
 }
 
