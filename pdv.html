@@ -290,7 +290,7 @@
       </div>
 
       <!-- Assistente de Divisão -->
-      <div class="form-group mb-16" style="background:var(--bg3);padding:10px 12px;border-radius:8px;border:1px solid var(--border);">
+      <div class="form-group mb-16" id="split-calculator-group" style="background:var(--bg3);padding:10px 12px;border-radius:8px;border:1px solid var(--border);">
         <label style="margin-bottom:4px;">Dividir conta (calculadora)</label>
         <div class="flex items-center" style="gap:8px;">
           <input type="number" id="split-people" min="1" value="1" style="width:70px;text-align:center;padding:6px;" oninput="updateSplitCalculator()">
@@ -299,7 +299,7 @@
       </div>
 
       <!-- Valores por Forma de Pagamento -->
-      <div class="form-group mb-16">
+      <div class="form-group mb-16" id="payment-methods-group">
         <label style="margin-bottom:8px;font-weight:600;">Lançar Pagamentos (clique no botão para preencher valor total)</label>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div class="flex items-center" style="gap:8px;">
@@ -326,7 +326,7 @@
       </div>
 
       <!-- Resumo do Lançamento -->
-      <div class="card mb-16" style="background:var(--bg3);padding:12px;font-size:13px;border-color:var(--border);">
+      <div class="card mb-16" id="payment-summary-card" style="background:var(--bg3);padding:12px;font-size:13px;border-color:var(--border);">
         <div class="flex justify-between mb-4">
           <span style="color:var(--text2);">Total lançado:</span>
           <strong id="pay-launched-total">R$ 0,00</strong>
@@ -434,6 +434,7 @@ let discountAmt = 0;
 let payMethod = 'dinheiro';
 let editingNoteItemId = null;
 let selectedFiadoCustomer = null;
+let isQuickFiado = false;
 
 async function init() {
   await initDB();
@@ -897,6 +898,14 @@ async function openPayment() {
     openAssignModal('payment');
     return;
   }
+  
+  isQuickFiado = false;
+  
+  // Restaura exibição padrão dos grupos
+  document.getElementById('split-calculator-group').style.display = '';
+  document.getElementById('payment-methods-group').style.display = '';
+  document.getElementById('payment-summary-card').style.display = '';
+
   const total = getTotal();
   setText('pay-total', fmt(total));
 
@@ -1586,8 +1595,54 @@ function quickPayBalcao() {
 
 function quickFiadoBalcao() {
   closeModal('modal-quick-balcao');
-  openPayment();
-  setSinglePayment('fiado');
+  
+  if (!orderItems.length) { toast('Pedido vazio', 'error'); return; }
+  if (!currentOrderId) {
+    openAssignModal('payment');
+    return;
+  }
+  
+  isQuickFiado = true;
+  
+  // Oculta os grupos que não são de fiado
+  document.getElementById('split-calculator-group').style.display = 'none';
+  document.getElementById('payment-methods-group').style.display = 'none';
+  document.getElementById('payment-summary-card').style.display = 'none';
+  document.getElementById('transfer-row').style.display = 'none';
+
+  const total = getTotal();
+  setText('pay-total', fmt(total));
+
+  // Define apenas fiado com o valor total
+  setVal('pay-amt-dinheiro', '');
+  setVal('pay-amt-cartao_debito', '');
+  setVal('pay-amt-cartao_credito', '');
+  setVal('pay-amt-pix', '');
+  setVal('pay-amt-fiado', total.toFixed(2));
+
+  selectedFiadoCustomer = null;
+  const custName = val('customer-name-input').trim();
+  setVal('fiado-customer-input', custName);
+  if (custName) {
+    const match = allCustomers.find(c => c.name.toLowerCase() === custName.toLowerCase());
+    if (match) {
+      selectFiadoCustomer(match.id, match.name);
+    } else {
+      selectFiadoCustomer(null, custName);
+    }
+  } else {
+    document.getElementById('fiado-customer-selected').style.display = 'none';
+  }
+
+  // Exibe a seção do fiado
+  document.getElementById('fiado-row').style.display = '';
+  
+  openModal('modal-payment');
+  
+  // Foca no campo de digitar cliente
+  setTimeout(() => {
+    document.getElementById('fiado-customer-input').focus();
+  }, 100);
 }
 
 init();
