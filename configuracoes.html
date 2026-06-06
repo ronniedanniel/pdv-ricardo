@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configurações</title>
+<link rel="stylesheet" href="css/style.css?v=2.5">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2 id="bar-name">Bar do Ricardo</h2>
+    <small>Sistema PDV</small>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">Principal</div>
+    <a class="nav-link" href="index.html"><i class="icon">🏠</i> Dashboard</a>
+    <a class="nav-link" href="pdv.html"><i class="icon">🛒</i> PDV / Venda</a>
+    <a class="nav-link" href="mesas.html"><i class="icon">🪑</i> Mesas</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="clientes.html"><i class="icon">👥</i> Clientes</a>
+    <a class="nav-link" href="produtos.html"><i class="icon">📦</i> Produtos</a>
+    <a class="nav-link" href="estoque.html"><i class="icon">📊</i> Estoque</a>
+    <a class="nav-link" href="caixa.html"><i class="icon">💰</i> Caixa</a>
+    <a class="nav-link" href="relatorios.html"><i class="icon">📈</i> Relatórios</a>
+    <div class="nav-group">Sistema</div>
+    <a class="nav-link active" href="configuracoes.html"><i class="icon">⚙️</i> Configurações</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1>Configurações</h1>
+  </div>
+
+  <div class="content" style="max-width:720px;">
+
+    <!-- Nome do estabelecimento -->
+    <div class="card mb-20">
+      <div class="section-title mb-16">Estabelecimento</div>
+      <div class="form-group">
+        <label>Nome do Bar / Estabelecimento</label>
+        <input type="text" id="cfg-bar-name" placeholder="Ex: Bar do Ricardo">
+      </div>
+      <button class="btn btn-primary" onclick="saveGeneral()">Salvar</button>
+    </div>
+
+    <!-- Happy Hour -->
+    <div class="card mb-20">
+      <div class="section-title mb-16">Happy Hour</div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label>Início</label>
+          <input type="time" id="cfg-hh-start">
+        </div>
+        <div class="form-group">
+          <label>Fim</label>
+          <input type="time" id="cfg-hh-end">
+        </div>
+        <div class="form-group">
+          <label>Desconto (%)</label>
+          <input type="number" id="cfg-hh-discount" min="0" max="100" placeholder="20">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveHappyHour()">Salvar</button>
+    </div>
+
+    <!-- Mesas -->
+    <div class="card mb-20">
+      <div class="section-title mb-16">Mesas Padrão</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">Recria as mesas do zero. Mesas com comandas abertas não serão apagadas.</p>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label>Quantidade de Mesas</label>
+          <input type="number" id="cfg-tables-qty" min="1" max="50" value="12">
+        </div>
+        <div class="form-group">
+          <label>Capacidade Padrão (pessoas)</label>
+          <input type="number" id="cfg-tables-cap" min="1" max="20" value="4">
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="resetTables()">🔄 Recriar Mesas</button>
+    </div>
+
+    <!-- Funcionários -->
+    <div class="card mb-20">
+      <div class="section-title mb-16">Funcionários / Usuários</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">Gerencie os funcionários cadastrados e suas permissões de acesso.</p>
+      
+      <div class="table-wrap mb-16">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Nome de Usuário</th>
+              <th>Função</th>
+              <th style="text-align:right;">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="users-list-body">
+            <tr><td colspan="4" style="text-align:center;">Carregando usuários...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;">
+        <h4 style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text);">Cadastrar Novo Funcionário</h4>
+        
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label>Nome Completo</label>
+            <input type="text" id="user-name" placeholder="Ex: João da Silva">
+          </div>
+          <div class="form-group">
+            <label>Usuário (login)</label>
+            <input type="text" id="user-username" placeholder="Ex: joao">
+          </div>
+          <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="user-password" placeholder="Ex: ****">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Função / Cargo</label>
+          <select id="user-role">
+            <option value="employee">Funcionário Simples (PDV & Mesas)</option>
+            <option value="admin">Administrador (Acesso Total)</option>
+          </select>
+        </div>
+        
+        <button class="btn btn-primary" onclick="addEmployee()">+ Adicionar Funcionário</button>
+      </div>
+    </div>
+
+    <!-- Nuvem & Sincronização (Supabase) -->
+    <div class="card mb-20" style="border-color:rgba(59,130,246,.4);">
+      <div class="section-title mb-8" style="color:var(--blue);">Nuvem & Sincronização (Supabase)</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+        Conecte o sistema ao banco de dados Supabase na nuvem para compartilhar dados em tempo real entre múltiplos dispositivos (celulares e computadores).
+      </p>
+      
+      <div class="form-group">
+        <label>Supabase URL</label>
+        <input type="text" id="cfg-supabase-url" placeholder="Ex: https://xxxx.supabase.co">
+      </div>
+      
+      <div class="form-group">
+        <label>Supabase Anon Key (Chave Pública)</label>
+        <input type="password" id="cfg-supabase-key" placeholder="Insira sua anon/public key do Supabase...">
+      </div>
+      
+      <div id="supabase-status-badge" style="margin-bottom: 16px;">
+        <span class="badge badge-gray">Carregando status...</span>
+      </div>
+
+      <div class="flex" style="gap:10px;">
+        <button class="btn btn-primary" onclick="connectSupabase()">🔌 Conectar Nuvem</button>
+        <button class="btn btn-secondary" id="btn-disconnect-supabase" style="display:none;" onclick="disconnectSupabase()">❌ Desconectar</button>
+      </div>
+    </div>
+
+    <!-- Dados de Exemplo -->
+    <div class="card mb-20" style="border-color:rgba(245,158,11,.4);">
+      <div class="section-title mb-8" style="color:var(--accent);">Limpar Dados de Exemplo</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
+        Remove todos os produtos e categorias que vieram pré-carregados. Suas vendas e histórico <strong>não serão apagados</strong>.
+        Use isso para começar do zero com seus próprios produtos.
+      </p>
+      <button class="btn btn-secondary" style="border-color:var(--accent);color:var(--accent);" onclick="clearSampleData()">
+        🗑️ Limpar Produtos e Categorias de Exemplo
+      </button>
+    </div>
+
+    <!-- Resetar tudo -->
+    <div class="card" style="border-color:rgba(239,68,68,.4);">
+      <div class="section-title mb-8" style="color:var(--red);">Zona de Perigo</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
+        Apaga <strong>absolutamente tudo</strong>: vendas, estoque, produtos, categorias, mesas, histórico de caixa. Ação irreversível.
+      </p>
+      <button class="btn btn-danger" onclick="resetAll()">
+        ⚠️ Apagar Todos os Dados
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-body" style="text-align:center;padding:30px 20px;">
+      <div style="font-size:40px;margin-bottom:12px;" id="confirm-icon">❓</div>
+      <p id="confirm-msg" style="font-size:15px;margin-bottom:8px;font-weight:600;"></p>
+      <p id="confirm-sub" style="font-size:13px;color:var(--text2);margin-bottom:24px;"></p>
+      <div id="confirm-type-row" style="display:none;margin-bottom:16px;">
+        <p style="font-size:13px;color:var(--red);margin-bottom:8px;">Digite <strong>CONFIRMAR</strong> para continuar:</p>
+        <input type="text" id="confirm-type-input" placeholder="CONFIRMAR" style="text-align:center;">
+      </div>
+      <div class="flex" style="gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+async function init() {
+  await initDB();
+  await seedInitialData();
+
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('bar-name').textContent = barName;
+  document.title = barName + ' - Configurações';
+  setVal('cfg-bar-name', barName);
+
+  setVal('cfg-hh-start', await dbGetSetting('happy_hour_start', '17:00'));
+  setVal('cfg-hh-end',   await dbGetSetting('happy_hour_end',   '19:00'));
+  setVal('cfg-hh-discount', await dbGetSetting('happy_hour_discount', 20));
+
+  await loadEmployees();
+
+  // Configuração e status do Supabase
+  const url = localStorage.getItem('supabase_url') || '';
+  const key = localStorage.getItem('supabase_key') || '';
+  setVal('cfg-supabase-url', url);
+  setVal('cfg-supabase-key', key);
+
+  const statusBadge = document.getElementById('supabase-status-badge');
+  const btnDisconnect = document.getElementById('btn-disconnect-supabase');
+
+  if (isSupabaseActive) {
+    statusBadge.innerHTML = '<span class="badge badge-green">🟢 Online (Sincronizado com Supabase)</span>';
+    btnDisconnect.style.display = '';
+  } else if (url && key) {
+    statusBadge.innerHTML = '<span class="badge badge-red">🔴 Erro ao Conectar (Modo Local Ativo)</span>';
+    btnDisconnect.style.display = '';
+  } else {
+    statusBadge.innerHTML = '<span class="badge badge-gray">⚪ Modo Local Ativo (Sem Sincronização)</span>';
+    btnDisconnect.style.display = 'none';
+  }
+
+  activePage();
+}
+
+async function saveGeneral() {
+  const name = val('cfg-bar-name').trim();
+  if (!name) { toast('Informe o nome do estabelecimento', 'error'); return; }
+  await dbSetSetting('bar_name', name);
+  document.getElementById('bar-name').textContent = name;
+  document.title = name + ' - Configurações';
+  toast('Nome salvo!');
+}
+
+async function saveHappyHour() {
+  await dbSetSetting('happy_hour_start',    val('cfg-hh-start'));
+  await dbSetSetting('happy_hour_end',      val('cfg-hh-end'));
+  await dbSetSetting('happy_hour_discount', parseFloat(val('cfg-hh-discount')) || 0);
+  toast('Happy Hour salvo!');
+}
+
+async function resetTables() {
+  const qty = parseInt(val('cfg-tables-qty')) || 12;
+  const cap = parseInt(val('cfg-tables-cap')) || 4;
+
+  showConfirm(
+    '🪑',
+    'Recriar Mesas?',
+    `Mesas livres serão removidas e ${qty} novas mesas serão criadas.`,
+    false,
+    async () => {
+      // Remove only free tables
+      const tables = await dbGetAll('tables');
+      for (const t of tables) {
+        if (t.status === 'free') await dbDelete('tables', t.id);
+      }
+      for (let i = 1; i <= qty; i++) {
+        await dbAdd('tables', { number: i, capacity: cap, status: 'free', label: 'Mesa ' + i });
+      }
+      toast(`${qty} mesas criadas!`);
+    }
+  );
+}
+
+async function clearSampleData() {
+  showConfirm(
+    '🗑️',
+    'Limpar dados de exemplo?',
+    'Todos os produtos e categorias serão removidos. Suas vendas não serão apagadas.',
+    false,
+    async () => {
+      const products = await dbGetAll('products');
+      for (const p of products) await dbDelete('products', p.id);
+
+      const categories = await dbGetAll('categories');
+      for (const c of categories) await dbDelete('categories', c.id);
+
+      toast('Dados de exemplo removidos! Você pode cadastrar seus produtos agora.', 'success');
+    }
+  );
+}
+
+async function resetAll() {
+  showConfirm(
+    '⚠️',
+    'Apagar TODOS os dados?',
+    'Isso vai apagar permanentemente tudo: vendas, produtos, estoque, caixa. Ação irreversível.',
+    true,
+    async () => {
+      const stores = ['products', 'categories', 'tables', 'orders', 'order_items', 'sales', 'sale_items', 'stock_movements', 'cash_sessions'];
+      for (const s of stores) {
+        const all = await dbGetAll(s);
+        for (const item of all) await dbDelete(s, item.id);
+      }
+      await dbSetSetting('seeded', false);
+      toast('Todos os dados foram apagados.', 'info');
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  );
+}
+
+function showConfirm(icon, msg, sub, requireType, onYes) {
+  document.getElementById('confirm-icon').textContent = icon;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-sub').textContent = sub;
+
+  const typeRow = document.getElementById('confirm-type-row');
+  const typeInput = document.getElementById('confirm-type-input');
+  typeRow.style.display = requireType ? '' : 'none';
+  if (requireType) setVal('confirm-type-input', '');
+
+  document.getElementById('confirm-yes').onclick = () => {
+    if (requireType && val('confirm-type-input') !== 'CONFIRMAR') {
+      toast('Digite CONFIRMAR para continuar', 'error');
+      return;
+    }
+    closeModal('modal-confirm');
+    onYes();
+  };
+  openModal('modal-confirm');
+}
+
+async function loadEmployees() {
+  const users = await dbGetAllUsers();
+  const tbody = document.getElementById('users-list-body');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum funcionário cadastrado</td></tr>';
+    return;
+  }
+  
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+  
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.name}</strong></td>
+      <td><code>${u.username}</code></td>
+      <td>
+        <span class="badge ${u.role === 'admin' ? 'badge-yellow' : 'badge-blue'}">
+          ${u.role === 'admin' ? 'Administrador' : 'Funcionário'}
+        </span>
+      </td>
+      <td style="text-align:right;">
+        ${u.id === currentUser.id ? 
+          `<span style="font-size:11px;color:var(--text3);font-style:italic;">Você (Logado)</span>` : 
+          `<button class="btn btn-danger btn-sm" onclick="deleteEmployee(${u.id}, '${u.name}')">Excluir</button>`
+        }
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function addEmployee() {
+  const name = val('user-name').trim();
+  const username = val('user-username').trim();
+  const password = val('user-password');
+  const role = val('user-role');
+  
+  if (!name) { toast('Preencha o nome completo', 'error'); return; }
+  if (!username) { toast('Preencha o nome de usuário', 'error'); return; }
+  if (!password) { toast('Preencha a senha', 'error'); return; }
+  
+  try {
+    await dbAddUser({ name, username, password, role });
+    toast('Funcionário adicionado com sucesso!');
+    
+    setVal('user-name', '');
+    setVal('user-username', '');
+    setVal('user-password', '');
+    setVal('user-role', 'employee');
+    
+    await loadEmployees();
+  } catch (err) {
+    toast(err.message || 'Erro ao adicionar funcionário', 'error');
+  }
+}
+
+async function deleteEmployee(id, name) {
+  showConfirm(
+    '👤',
+    `Excluir funcionário ${name}?`,
+    'Esta ação removerá o acesso dele ao sistema permanentemente.',
+    false,
+    async () => {
+      await dbDeleteUser(id);
+      toast('Funcionário excluído!');
+      await loadEmployees();
+    }
+  );
+}
+
+async function connectSupabase() {
+  const url = val('cfg-supabase-url').trim();
+  const key = val('cfg-supabase-key').trim();
+
+  if (!url) { toast('Preencha a URL do Supabase', 'error'); return; }
+  if (!key) { toast('Preencha a Anon Key do Supabase', 'error'); return; }
+
+  toast('Testando conexão...', 'info');
+
+  try {
+    await new Promise((resolve, reject) => {
+      if (typeof supabase !== 'undefined') {
+        resolve();
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Erro ao carregar script do Supabase'));
+        document.head.appendChild(script);
+      }
+    });
+
+    const client = supabase.createClient(url, key);
+    const { error } = await client.from('settings').select().limit(1);
+    if (error) throw error;
+
+    localStorage.setItem('supabase_url', url);
+    localStorage.setItem('supabase_key', key);
+    
+    toast('Conectado ao Supabase com sucesso!', 'success');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  } catch (err) {
+    console.error(err);
+    toast('Falha ao conectar: verifique a URL, a Key e se rodou o script SQL das tabelas.', 'error');
+  }
+}
+
+function disconnectSupabase() {
+  showConfirm(
+    '🔌',
+    'Desconectar do Supabase?',
+    'O sistema voltará a usar o banco de dados local (IndexedDB) deste navegador. Os dados da nuvem não serão apagados.',
+    false,
+    () => {
+      localStorage.removeItem('supabase_url');
+      localStorage.removeItem('supabase_key');
+      toast('Desconectado! Retornando ao modo offline local...', 'info');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  );
+}
+
+document.getElementById('modal-confirm').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal('modal-confirm');
+});
+
+init();
+</script>
+</body>
+</html>

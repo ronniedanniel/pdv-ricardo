@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produtos</title>
+<link rel="stylesheet" href="css/style.css?v=2.5">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2 id="bar-name">Bar do Ricardo</h2>
+    <small>Sistema PDV</small>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">Principal</div>
+    <a class="nav-link" href="index.html"><i class="icon">🏠</i> Dashboard</a>
+    <a class="nav-link" href="pdv.html"><i class="icon">🛒</i> PDV / Venda</a>
+    <a class="nav-link" href="mesas.html"><i class="icon">🪑</i> Mesas</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="clientes.html"><i class="icon">👥</i> Clientes</a>
+    <a class="nav-link active" href="produtos.html"><i class="icon">📦</i> Produtos</a>
+    <a class="nav-link" href="estoque.html"><i class="icon">📊</i> Estoque</a>
+    <a class="nav-link" href="caixa.html"><i class="icon">💰</i> Caixa</a>
+    <a class="nav-link" href="relatorios.html"><i class="icon">📈</i> Relatórios</a>
+    <div class="nav-group">Sistema</div>
+    <a class="nav-link" href="configuracoes.html"><i class="icon">⚙️</i> Configurações</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1>Produtos</h1>
+    <div class="topbar-right">
+      <div class="search-bar" style="width:220px;">
+        <span>🔍</span>
+        <input type="text" id="search-input" placeholder="Buscar produto..." oninput="renderProducts()">
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="openCatModal()">📁 Categorias</button>
+      <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Produto</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="tabs mb-16" id="cat-tabs"></div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Categoria</th>
+              <th>Preço</th>
+              <th>Custo</th>
+              <th>Margem</th>
+              <th>Estoque</th>
+              <th>Mínimo</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="products-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Produto -->
+<div class="modal-overlay" id="modal-product">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-product-title">Novo Produto</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-product')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="product-id">
+      <div class="form-group">
+        <label>Nome do Produto *</label>
+        <input type="text" id="product-name" placeholder="Ex: Cerveja Long Neck">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label>Categoria *</label>
+          <select id="product-cat"></select>
+        </div>
+        <div class="form-group">
+          <label>Unidade</label>
+          <select id="product-unit">
+            <option value="un">Unidade (un)</option>
+            <option value="dose">Dose</option>
+            <option value="ml">Mililitros (ml)</option>
+            <option value="kg">Quilograma (kg)</option>
+            <option value="g">Gramas (g)</option>
+            <option value="lt">Litros (lt)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label>Preço de Venda (R$) *</label>
+          <input type="number" id="product-price" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <div class="form-group">
+          <label>Custo (R$)</label>
+          <input type="number" id="product-cost" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label>Estoque Atual</label>
+          <input type="number" id="product-stock" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Estoque Mínimo</label>
+          <input type="number" id="product-minstock" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="product-active" checked style="width:auto;margin-right:6px;">
+          Produto ativo (visível no PDV)
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-product')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Categorias -->
+<div class="modal-overlay" id="modal-categories">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Categorias</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-categories')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="cat-list" style="margin-bottom:16px;"></div>
+      <hr class="divider">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Nova Categoria</div>
+      <div class="form-row form-row-3">
+        <div class="form-group" style="margin:0;">
+          <label>Nome</label>
+          <input type="text" id="new-cat-name" placeholder="Ex: Cervejas">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Ícone</label>
+          <input type="text" id="new-cat-icon" placeholder="🍺" maxlength="4">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Cor</label>
+          <input type="color" id="new-cat-color" value="#f59e0b">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm mt-8" onclick="addCategory()">+ Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-body" style="text-align:center;padding:30px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">❓</div>
+      <p id="confirm-msg" style="font-size:15px;margin-bottom:20px;"></p>
+      <div class="flex" style="gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+let categories = [];
+let products = [];
+let filterCat = null;
+
+async function init() {
+  await initDB();
+  await seedInitialData();
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('bar-name').textContent = barName;
+  activePage();
+  await loadAll();
+}
+
+async function loadAll() {
+  categories = await dbGetAll('categories');
+  products = await dbGetAll('products');
+  renderCatTabs();
+  renderProducts();
+}
+
+function renderCatTabs() {
+  const tabs = document.getElementById('cat-tabs');
+  tabs.innerHTML = `<button class="tab-btn ${filterCat === null ? 'active' : ''}" onclick="setCat(null)">Todos</button>` +
+    categories.map(c => `<button class="tab-btn ${filterCat === c.id ? 'active' : ''}" onclick="setCat(${c.id})">${c.icon} ${c.name}</button>`).join('');
+}
+
+function setCat(id) { filterCat = id; renderCatTabs(); renderProducts(); }
+
+function renderProducts() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  let list = [...products];
+  if (filterCat) list = list.filter(p => p.categoryId === filterCat);
+  if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
+
+  const catMap = {};
+  categories.forEach(c => catMap[c.id] = c);
+
+  const tbody = document.getElementById('products-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3);">Nenhum produto encontrado</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(p => {
+    const cat = catMap[p.categoryId] || {};
+    const margin = p.cost > 0 ? ((p.price - p.cost) / p.price * 100).toFixed(0) : '—';
+    const lowStock = p.minStock > 0 && p.stock <= p.minStock;
+    return `<tr>
+      <td><strong>${cat.icon || ''} ${p.name}</strong></td>
+      <td><span class="badge badge-gray">${cat.name || '—'}</span></td>
+      <td><strong style="color:var(--accent);">${fmt(p.price)}</strong></td>
+      <td style="color:var(--text3);">${fmt(p.cost)}</td>
+      <td><span class="badge ${margin !== '—' && parseInt(margin) >= 40 ? 'badge-green' : 'badge-yellow'}">${margin}%</span></td>
+      <td><span class="${lowStock ? 'badge badge-red' : ''}">${p.stock} ${p.unit}</span></td>
+      <td style="color:var(--text3);">${p.minStock} ${p.unit}</td>
+      <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? 'Ativo' : 'Inativo'}</span></td>
+      <td>
+        <div class="flex" style="gap:4px;">
+          <button class="btn btn-icon btn-sm" onclick="editProduct(${p.id})" title="Editar">✏️</button>
+          <button class="btn btn-icon btn-sm" onclick="toggleProduct(${p.id}, ${p.active})" title="${p.active ? 'Desativar' : 'Ativar'}">${p.active ? '🔴' : '🟢'}</button>
+          <button class="btn btn-icon btn-sm" onclick="deleteProduct(${p.id})" title="Excluir">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openProductModal(id) {
+  document.getElementById('modal-product-title').textContent = id ? 'Editar Produto' : 'Novo Produto';
+  setVal('product-id', '');
+  setVal('product-name', '');
+  setVal('product-price', '');
+  setVal('product-cost', '');
+  setVal('product-stock', '0');
+  setVal('product-minstock', '0');
+  document.getElementById('product-active').checked = true;
+
+  const catSel = document.getElementById('product-cat');
+  catSel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+
+  openModal('modal-product');
+}
+
+async function editProduct(id) {
+  const p = await dbGet('products', id);
+  if (!p) return;
+  openProductModal(id);
+  setVal('product-id', id);
+  setVal('product-name', p.name);
+  setVal('product-price', p.price);
+  setVal('product-cost', p.cost);
+  setVal('product-stock', p.stock);
+  setVal('product-minstock', p.minStock);
+  setVal('product-unit', p.unit);
+  setVal('product-cat', p.categoryId);
+  document.getElementById('product-active').checked = p.active;
+  document.getElementById('modal-product-title').textContent = 'Editar Produto';
+}
+
+async function saveProduct() {
+  const name = val('product-name');
+  const price = parseFloat(val('product-price'));
+  const cost = parseFloat(val('product-cost')) || 0;
+  const stock = parseInt(val('product-stock')) || 0;
+  const minStock = parseInt(val('product-minstock')) || 0;
+  const categoryId = parseInt(val('product-cat'));
+  const unit = val('product-unit') || 'un';
+  const active = document.getElementById('product-active').checked;
+  const id = parseInt(val('product-id')) || null;
+
+  if (!name) { toast('Informe o nome do produto', 'error'); return; }
+  if (isNaN(price) || price < 0) { toast('Informe o preço', 'error'); return; }
+
+  const data = { categoryId, name, price, cost, stock, minStock, unit, active };
+  if (id) {
+    await dbPut('products', { ...data, id });
+    toast('Produto atualizado');
+  } else {
+    await dbAdd('products', data);
+    toast('Produto criado');
+  }
+  closeModal('modal-product');
+  await loadAll();
+}
+
+async function toggleProduct(id, active) {
+  const p = await dbGet('products', id);
+  await dbPut('products', { ...p, active: !active });
+  toast(active ? 'Produto desativado' : 'Produto ativado');
+  await loadAll();
+}
+
+async function deleteProduct(id) {
+  confirm('Excluir este produto permanentemente?', async () => {
+    await dbDelete('products', id);
+    toast('Produto excluído');
+    await loadAll();
+  });
+}
+
+async function openCatModal() {
+  renderCatList();
+  openModal('modal-categories');
+}
+
+function renderCatList() {
+  const el = document.getElementById('cat-list');
+  el.innerHTML = categories.map(c => `
+    <div class="flex items-center" style="gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:20px;">${c.icon}</span>
+      <span style="flex:1;font-weight:600;">${c.name}</span>
+      <span style="width:24px;height:24px;border-radius:4px;background:${c.color};display:inline-block;"></span>
+      <button class="btn btn-icon btn-sm" onclick="deleteCategory(${c.id})">🗑️</button>
+    </div>
+  `).join('') || '<div style="color:var(--text3);font-size:13px;">Nenhuma categoria</div>';
+}
+
+async function addCategory() {
+  const name = val('new-cat-name');
+  const icon = val('new-cat-icon') || '📦';
+  const color = document.getElementById('new-cat-color').value;
+  if (!name) { toast('Informe o nome', 'error'); return; }
+  await dbAdd('categories', { name, icon, color });
+  setVal('new-cat-name', '');
+  setVal('new-cat-icon', '');
+  toast('Categoria criada');
+  categories = await dbGetAll('categories');
+  renderCatList();
+  renderCatTabs();
+}
+
+async function deleteCategory(id) {
+  const inUse = products.some(p => p.categoryId === id);
+  if (inUse) { toast('Categoria em uso, remova os produtos primeiro', 'error'); return; }
+  confirm('Excluir categoria?', async () => {
+    await dbDelete('categories', id);
+    categories = await dbGetAll('categories');
+    renderCatList();
+    renderCatTabs();
+    renderProducts();
+    toast('Categoria removida');
+  });
+}
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+
+init();
+</script>
+</body>
+</html>

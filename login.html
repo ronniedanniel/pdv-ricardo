@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDV Bar - Login</title>
+<link rel="stylesheet" href="css/style.css?v=2.6">
+<style>
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--bg);
+    padding: 20px;
+    margin: 0;
+    overflow: hidden;
+  }
+  .login-container {
+    width: 100%;
+    max-width: 400px;
+    animation: fadeIn 0.4s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .login-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    text-align: center;
+  }
+  .login-logo {
+    margin-bottom: 24px;
+  }
+  .login-logo h2 {
+    font-size: 22px;
+    color: var(--accent);
+    font-weight: 800;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .login-logo p {
+    color: var(--text3);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .form-group {
+    text-align: left;
+    margin-bottom: 18px;
+  }
+  .form-group label {
+    font-size: 11px;
+    color: var(--text2);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-group input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .form-group input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(245,158,11,.15);
+  }
+  .btn-login {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    background: var(--accent);
+    color: #000;
+    border-radius: 8px;
+    margin-top: 10px;
+    box-shadow: 0 4px 12px rgba(245,158,11,.2);
+  }
+  .btn-login:hover {
+    background: var(--accent2);
+    transform: translateY(-1px);
+  }
+  .btn-login:active {
+    transform: translateY(0);
+  }
+  .login-footer {
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--text3);
+  }
+</style>
+</head>
+<body>
+
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-logo">
+      <h2 id="login-bar-name">Bar do Ricardo</h2>
+      <p>Acesso ao Sistema</p>
+    </div>
+    
+    <div id="login-form">
+      <div class="form-group">
+        <label for="username">Usuário</label>
+        <input type="text" id="username" placeholder="Digite seu usuário..." autocomplete="username" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Senha</label>
+        <input type="password" id="password" placeholder="Digite sua senha..." autocomplete="current-password" required>
+      </div>
+      
+      <button class="btn btn-primary btn-login" onclick="handleLogin()">Entrar ➔</button>
+    </div>
+    
+    <div class="login-footer">
+      &copy; 2026 Bar do Ricardo &bull; Todos os direitos reservados.
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+async function init() {
+  await initDB();
+  await seedInitialData();
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('login-bar-name').textContent = barName;
+  
+  // If user is already logged in, redirect them to dashboard
+  if (sessionStorage.getItem('currentUser')) {
+    window.location.href = 'index.html';
+  }
+}
+
+async function handleLogin() {
+  const userEl = document.getElementById('username');
+  const passEl = document.getElementById('password');
+  
+  const username = userEl.value.trim();
+  const password = passEl.value;
+  
+  if (!username) {
+    toast('Digite o usuário', 'error');
+    userEl.focus();
+    return;
+  }
+  if (!password) {
+    toast('Digite a senha', 'error');
+    passEl.focus();
+    return;
+  }
+  
+  try {
+    const user = await dbVerifyLogin(username, password);
+    if (user) {
+      sessionStorage.setItem('currentUser', JSON.stringify({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        role: user.role
+      }));
+      toast('Login realizado com sucesso! Redirecionando...', 'success');
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 800);
+    } else {
+      toast('Usuário ou senha incorretos!', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao verificar login', 'error');
+  }
+}
+
+// Allow login by pressing Enter key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    handleLogin();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

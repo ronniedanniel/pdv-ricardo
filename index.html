@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDV Bar - Dashboard</title>
+<link rel="stylesheet" href="css/style.css?v=2.5">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2 id="bar-name">Bar do Ricardo</h2>
+    <small>Sistema PDV</small>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">Principal</div>
+    <a class="nav-link active" href="index.html"><i class="icon">🏠</i> Dashboard</a>
+    <a class="nav-link" href="pdv.html"><i class="icon">🛒</i> PDV / Venda</a>
+    <a class="nav-link" href="mesas.html"><i class="icon">🪑</i> Mesas</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="clientes.html"><i class="icon">👥</i> Clientes</a>
+    <a class="nav-link" href="produtos.html"><i class="icon">📦</i> Produtos</a>
+    <a class="nav-link" href="estoque.html"><i class="icon">📊</i> Estoque</a>
+    <a class="nav-link" href="caixa.html"><i class="icon">💰</i> Caixa</a>
+    <a class="nav-link" href="relatorios.html"><i class="icon">📈</i> Relatórios</a>
+    <div class="nav-group">Sistema</div>
+    <a class="nav-link" href="configuracoes.html"><i class="icon">⚙️</i> Configurações</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1>Dashboard</h1>
+    <div class="topbar-right">
+      <span id="topbar-date" style="color:var(--text2);font-size:13px;"></span>
+      <a href="pdv.html" class="btn btn-primary btn-sm">Abrir PDV</a>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPI Cards -->
+    <div class="grid-4 mb-20" id="kpi-cards">
+      <div class="card">
+        <div class="flex items-center justify-between mb-8">
+          <span class="card-title">Vendas Hoje</span>
+          <div class="stat-icon" style="background:rgba(245,158,11,.15);">💰</div>
+        </div>
+        <div class="card-value" id="kpi-revenue">R$ 0,00</div>
+        <div class="card-sub" id="kpi-revenue-sub">0 pedidos</div>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-8">
+          <span class="card-title">Ticket Médio</span>
+          <div class="stat-icon" style="background:rgba(59,130,246,.15);">🎯</div>
+        </div>
+        <div class="card-value" id="kpi-ticket">R$ 0,00</div>
+        <div class="card-sub">por pedido hoje</div>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-8">
+          <span class="card-title">Mesas Abertas</span>
+          <div class="stat-icon" style="background:rgba(16,185,129,.15);">🪑</div>
+        </div>
+        <div class="card-value" id="kpi-tables">0</div>
+        <div class="card-sub" id="kpi-tables-sub">de 0 mesas</div>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-8">
+          <span class="card-title">Estoque Baixo</span>
+          <div class="stat-icon" style="background:rgba(239,68,68,.15);">⚠️</div>
+        </div>
+        <div class="card-value" id="kpi-lowstock">0</div>
+        <div class="card-sub">produtos abaixo do mínimo</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-20" style="gap:16px;">
+      <!-- Vendas por hora -->
+      <div class="card">
+        <div class="section-title mb-16">Vendas por Hora (hoje)</div>
+        <div class="chart-wrap">
+          <canvas id="chart-hours"></canvas>
+        </div>
+      </div>
+      <!-- Mais vendidos hoje -->
+      <div class="card">
+        <div class="section-title mb-16">Mais Vendidos (hoje)</div>
+        <div id="top-sellers-today">
+          <div class="empty-state"><div class="empty-icon">📦</div><p>Nenhuma venda ainda hoje</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="gap:16px;">
+      <!-- Estoque baixo -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-16">
+          <div class="section-title" style="margin:0;">Alertas de Estoque</div>
+          <a href="estoque.html" class="btn btn-ghost btn-sm">Ver todos</a>
+        </div>
+        <div id="low-stock-list">
+          <div class="empty-state"><div class="empty-icon">✅</div><p>Estoque OK</p></div>
+        </div>
+      </div>
+      <!-- Pedidos recentes -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-16">
+          <div class="section-title" style="margin:0;">Últimas Vendas</div>
+          <a href="relatorios.html" class="btn btn-ghost btn-sm">Ver relatório</a>
+        </div>
+        <div id="recent-sales">
+          <div class="empty-state"><div class="empty-icon">🛒</div><p>Nenhuma venda hoje</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vendas por Funcionário -->
+    <div class="card mt-16">
+      <div class="section-title mb-16">Vendas por Funcionário (Hoje)</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Funcionário</th>
+              <th>Total Vendido (R$)</th>
+              <th>Total de Pedidos</th>
+            </tr>
+          </thead>
+          <tbody id="employee-sales-body">
+            <tr><td colspan="3" style="text-align:center;">Nenhuma venda realizada hoje</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-body" style="text-align:center;padding:30px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">❓</div>
+      <p id="confirm-msg" style="font-size:15px;margin-bottom:20px;"></p>
+      <div class="flex" style="gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+let hoursChart;
+
+async function init() {
+  await initDB();
+  await seedInitialData();
+
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('bar-name').textContent = barName;
+  document.title = barName + ' - Dashboard';
+
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  await loadKPIs();
+  await loadHoursChart();
+  await loadTopSellers();
+  await loadLowStock();
+  await loadRecentSales();
+  await loadEmployeeSales();
+
+  activePage();
+}
+
+async function loadKPIs() {
+  const sales = await getSalesToday();
+  const total = sales.reduce((s, x) => s + x.total, 0);
+  const ticket = sales.length ? total / sales.length : 0;
+
+  setText('kpi-revenue', fmt(total));
+  setText('kpi-revenue-sub', sales.length + ' pedido' + (sales.length !== 1 ? 's' : '') + ' hoje');
+  setText('kpi-ticket', fmt(ticket));
+
+  const allTables = await dbGetAll('tables');
+  const tables = allTables.filter(t => t.number !== 0);
+  const occupied = tables.filter(t => t.status === 'occupied').length;
+  setText('kpi-tables', occupied);
+  setText('kpi-tables-sub', 'de ' + tables.length + ' mesas');
+
+  const lowStock = await getLowStockProducts();
+  setText('kpi-lowstock', lowStock.length);
+  if (lowStock.length > 0) {
+    document.getElementById('kpi-lowstock').style.color = 'var(--red)';
+  }
+}
+
+async function loadHoursChart() {
+  const sales = await getSalesToday();
+  const byHour = Array(24).fill(0);
+
+  for (const s of sales) {
+    const h = new Date(s.createdAt).getHours();
+    byHour[h] += s.total;
+  }
+
+  const labels = [];
+  const data = [];
+  const now = new Date().getHours();
+  const start = Math.max(0, Math.min(now - 2, 8));
+  const end = Math.min(23, Math.max(now + 2, 23));
+
+  for (let h = start; h <= end; h++) {
+    labels.push(h + 'h');
+    data.push(byHour[h]);
+  }
+
+  if (hoursChart) hoursChart.destroy();
+
+  const ctx = document.getElementById('chart-hours').getContext('2d');
+  hoursChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Vendas (R$)',
+        data,
+        backgroundColor: 'rgba(245,158,11,.7)',
+        borderColor: 'rgba(245,158,11,1)',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8' } },
+        y: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8', callback: v => 'R$' + v } },
+      }
+    }
+  });
+}
+
+async function loadTopSellers() {
+  const sales = await getSalesToday();
+  const totals = {};
+
+  for (const sale of sales) {
+    const items = await getSaleItems(sale.id);
+    for (const it of items) {
+      if (!totals[it.productId]) totals[it.productId] = { name: it.name, qty: 0, revenue: 0 };
+      totals[it.productId].qty += it.qty;
+      totals[it.productId].revenue += it.price * it.qty;
+    }
+  }
+
+  const sorted = Object.values(totals).sort((a, b) => b.qty - a.qty).slice(0, 6);
+  const container = document.getElementById('top-sellers-today');
+
+  if (!sorted.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>Nenhuma venda ainda hoje</p></div>';
+    return;
+  }
+
+  const max = sorted[0].qty;
+  container.innerHTML = sorted.map((p, i) => `
+    <div style="margin-bottom:10px;">
+      <div class="flex items-center justify-between mb-8" style="font-size:13px;">
+        <span style="font-weight:600;">${i + 1}. ${p.name}</span>
+        <span style="color:var(--text3);">${p.qty}x &nbsp; <strong style="color:var(--accent);">${fmt(p.revenue)}</strong></span>
+      </div>
+      <div class="stock-bar">
+        <div class="stock-bar-fill" style="width:${(p.qty / max * 100).toFixed(0)}%;background:var(--accent);"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadLowStock() {
+  const items = await getLowStockProducts();
+  const el = document.getElementById('low-stock-list');
+
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><p>Todos os produtos acima do mínimo</p></div>';
+    return;
+  }
+
+  el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Produto</th><th>Estoque</th><th>Mínimo</th></tr></thead><tbody>' +
+    items.slice(0, 8).map(p => `
+      <tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge ${p.stock === 0 ? 'badge-red' : 'badge-yellow'}">${p.stock} ${p.unit}</span></td>
+        <td style="color:var(--text3);">${p.minStock} ${p.unit}</td>
+      </tr>
+    `).join('') + '</tbody></table></div>';
+}
+
+async function loadRecentSales() {
+  const sales = await getSalesToday();
+  const el = document.getElementById('recent-sales');
+
+  if (!sales.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>Nenhuma venda hoje</p></div>';
+    return;
+  }
+
+  const sorted = [...sales].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
+  el.innerHTML = sorted.map(s => {
+    let paymentDesc = '';
+    if (s.payments && s.payments.length > 0) {
+      paymentDesc = s.payments.map(p => PAYMENT_LABELS[p.method] || p.method).join(' + ');
+    } else {
+      paymentDesc = PAYMENT_LABELS[s.paymentMethod] || s.paymentMethod;
+    }
+    return `
+    <div class="flex items-center justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:600;">Mesa ${s.tableNum || '—'}</div>
+        <div style="font-size:11px;color:var(--text3);">${fmtTime(s.createdAt)} &bull; ${paymentDesc}</div>
+      </div>
+      <strong style="color:var(--accent);">${fmt(s.total)}</strong>
+    </div>
+  `;}).join('');
+}
+
+async function loadEmployeeSales() {
+  const sales = await getSalesToday();
+  const employeeStats = {};
+  
+  for (const s of sales) {
+    const name = s.sellerName || 'Desconhecido';
+    if (!employeeStats[name]) {
+      employeeStats[name] = { total: 0, count: 0 };
+    }
+    employeeStats[name].total += s.total;
+    employeeStats[name].count++;
+  }
+  
+  const tbody = document.getElementById('employee-sales-body');
+  const sortedStats = Object.entries(employeeStats).sort((a, b) => b[1].total - a[1].total);
+  
+  if (sortedStats.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nenhuma venda realizada hoje</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = sortedStats.map(([name, stat]) => `
+    <tr>
+      <td><strong>👤 ${name}</strong></td>
+      <td><strong style="color:var(--accent);">${fmt(stat.total)}</strong></td>
+      <td><span class="badge badge-gray">${stat.count}</span></td>
+    </tr>
+  `).join('');
+}
+
+init();
+</script>
+</body>
+</html>

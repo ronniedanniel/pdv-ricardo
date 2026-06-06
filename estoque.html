@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estoque</title>
+<link rel="stylesheet" href="css/style.css?v=2.5">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2 id="bar-name">Bar do Ricardo</h2>
+    <small>Sistema PDV</small>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">Principal</div>
+    <a class="nav-link" href="index.html"><i class="icon">🏠</i> Dashboard</a>
+    <a class="nav-link" href="pdv.html"><i class="icon">🛒</i> PDV / Venda</a>
+    <a class="nav-link" href="mesas.html"><i class="icon">🪑</i> Mesas</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="clientes.html"><i class="icon">👥</i> Clientes</a>
+    <a class="nav-link" href="produtos.html"><i class="icon">📦</i> Produtos</a>
+    <a class="nav-link active" href="estoque.html"><i class="icon">📊</i> Estoque</a>
+    <a class="nav-link" href="caixa.html"><i class="icon">💰</i> Caixa</a>
+    <a class="nav-link" href="relatorios.html"><i class="icon">📈</i> Relatórios</a>
+    <div class="nav-group">Sistema</div>
+    <a class="nav-link" href="configuracoes.html"><i class="icon">⚙️</i> Configurações</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1>Estoque</h1>
+    <div class="topbar-right">
+      <button class="btn btn-success btn-sm" onclick="openMovModal('in')">+ Entrada</button>
+      <button class="btn btn-danger btn-sm" onclick="openMovModal('waste')">− Saída / Desperdício</button>
+      <button class="btn btn-secondary btn-sm" onclick="openMovModal('adjustment')">⚖️ Ajuste</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Low stock alert -->
+    <div id="low-stock-alert" style="display:none;" class="alert alert-warning mb-16">
+      ⚠️ <strong id="low-stock-count">0</strong> produto(s) com estoque abaixo do mínimo.
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="flex items-center justify-between mb-16" style="gap:12px;">
+      <div class="tabs" id="view-tabs">
+        <button class="tab-btn active" onclick="setView('stock', this)">Estoque Atual</button>
+        <button class="tab-btn" onclick="setView('movements', this)">Movimentações</button>
+      </div>
+      <div class="search-bar" style="width:220px;">
+        <span>🔍</span>
+        <input type="text" id="search-input" placeholder="Buscar produto..." oninput="renderView()">
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- Stock view -->
+      <div id="view-stock">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Categoria</th>
+                <th>Estoque</th>
+                <th>Mínimo</th>
+                <th>Situação</th>
+                <th>Custo Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="stock-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Movements view -->
+      <div id="view-movements" style="display:none;">
+        <div class="flex" style="gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <select id="filter-mov-type" onchange="renderView()" style="width:160px;">
+            <option value="">Todos os tipos</option>
+            <option value="in">Entradas</option>
+            <option value="sale">Vendas</option>
+            <option value="waste">Desperdício</option>
+            <option value="adjustment">Ajuste</option>
+          </select>
+          <input type="date" id="filter-date-from" onchange="renderView()" style="width:160px;">
+          <input type="date" id="filter-date-to" onchange="renderView()" style="width:160px;">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Produto</th>
+                <th>Tipo</th>
+                <th>Quantidade</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody id="movements-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Movimentação -->
+<div class="modal-overlay" id="modal-movement">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="mov-title">Entrada de Estoque</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-movement')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mov-type">
+      <div class="form-group">
+        <label>Produto *</label>
+        <select id="mov-product">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+      <div id="current-stock-info" style="display:none;" class="alert alert-info mb-8" id="current-stock-info">
+        Estoque atual: <strong id="current-stock-val">0</strong>
+      </div>
+      <div class="form-group">
+        <label>Quantidade *</label>
+        <input type="number" id="mov-qty" min="1" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Motivo / Observação</label>
+        <input type="text" id="mov-reason" placeholder="Ex: Compra do fornecedor...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-movement')">Cancelar</button>
+      <button class="btn btn-primary" id="mov-btn" onclick="saveMovement()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-body" style="text-align:center;padding:30px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">❓</div>
+      <p id="confirm-msg" style="font-size:15px;margin-bottom:20px;"></p>
+      <div class="flex" style="gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+let currentView = 'stock';
+let products = [];
+let categories = [];
+
+async function init() {
+  await initDB();
+  await seedInitialData();
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('bar-name').textContent = barName;
+  activePage();
+  products = await dbGetAll('products');
+  categories = await dbGetAll('categories');
+
+  // Set default date filter to today
+  const today = new Date().toISOString().split('T')[0];
+  setVal('filter-date-from', today);
+  setVal('filter-date-to', today);
+
+  await renderView();
+  await checkLowStock();
+}
+
+function setView(view, btn) {
+  currentView = view;
+  document.getElementById('view-stock').style.display = view === 'stock' ? '' : 'none';
+  document.getElementById('view-movements').style.display = view === 'movements' ? '' : 'none';
+  document.querySelectorAll('#view-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderView();
+}
+
+async function renderView() {
+  if (currentView === 'stock') await renderStock();
+  else await renderMovements();
+}
+
+async function checkLowStock() {
+  const low = await getLowStockProducts();
+  const alertEl = document.getElementById('low-stock-alert');
+  if (low.length) {
+    alertEl.style.display = '';
+    setText('low-stock-count', low.length);
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+async function renderStock() {
+  const q = (val('search-input')).toLowerCase();
+  const catMap = {};
+  categories.forEach(c => catMap[c.id] = c);
+
+  let list = products.filter(p => p.active);
+  if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
+  list.sort((a, b) => {
+    const aLow = a.minStock > 0 && a.stock <= a.minStock;
+    const bLow = b.minStock > 0 && b.stock <= b.minStock;
+    if (aLow && !bLow) return -1;
+    if (!aLow && bLow) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const tbody = document.getElementById('stock-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3);">Nenhum produto</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const cat = catMap[p.categoryId] || {};
+    const pct = p.minStock > 0 ? Math.min(100, (p.stock / (p.minStock * 3)) * 100) : 100;
+    const low = p.minStock > 0 && p.stock <= p.minStock;
+    const critical = p.minStock > 0 && p.stock === 0;
+    const barColor = critical ? 'var(--red)' : low ? 'var(--accent)' : 'var(--green)';
+    const status = critical ? '<span class="badge badge-red">Zerado</span>' : low ? '<span class="badge badge-yellow">Baixo</span>' : '<span class="badge badge-green">OK</span>';
+    const custo = p.cost * p.stock;
+
+    return `<tr>
+      <td>
+        <strong>${cat.icon || ''} ${p.name}</strong>
+        <div class="stock-bar" style="width:120px;margin-top:4px;">
+          <div class="stock-bar-fill" style="width:${pct.toFixed(0)}%;background:${barColor};"></div>
+        </div>
+      </td>
+      <td><span class="badge badge-gray">${cat.name || '—'}</span></td>
+      <td><strong style="font-size:15px;">${p.stock}</strong> <span style="color:var(--text3);font-size:12px;">${p.unit}</span></td>
+      <td style="color:var(--text3);">${p.minStock} ${p.unit}</td>
+      <td>${status}</td>
+      <td style="color:var(--text2);">${fmt(custo)}</td>
+      <td>
+        <div class="flex" style="gap:4px;">
+          <button class="btn btn-success btn-sm" onclick="openMovModalFor('in', ${p.id})" title="Entrada">+</button>
+          <button class="btn btn-danger btn-sm" onclick="openMovModalFor('waste', ${p.id})" title="Saída">−</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function renderMovements() {
+  const q = (val('search-input')).toLowerCase();
+  const typeFilter = val('filter-mov-type');
+  const dateFrom = val('filter-date-from');
+  const dateTo = val('filter-date-to');
+
+  let movs = await dbGetAll('stock_movements');
+
+  if (typeFilter) movs = movs.filter(m => m.type === typeFilter);
+  if (dateFrom) movs = movs.filter(m => m.date >= dateFrom);
+  if (dateTo) movs = movs.filter(m => m.date <= dateTo + 'T23:59:59');
+  if (q) movs = movs.filter(m => m.productName.toLowerCase().includes(q));
+
+  movs.sort((a, b) => b.date.localeCompare(a.date));
+
+  const tbody = document.getElementById('movements-tbody');
+  if (!movs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text3);">Nenhuma movimentação</td></tr>';
+    return;
+  }
+
+  const typeColors = { in: 'badge-green', sale: 'badge-blue', waste: 'badge-red', adjustment: 'badge-yellow' };
+  tbody.innerHTML = movs.map(m => `
+    <tr>
+      <td style="white-space:nowrap;">${fmtDate(m.date)}</td>
+      <td><strong>${m.productName}</strong></td>
+      <td><span class="badge ${typeColors[m.type] || 'badge-gray'}">${MOVEMENT_LABELS[m.type] || m.type}</span></td>
+      <td style="font-weight:600;">${m.type === 'in' || m.type === 'adjustment' ? '+' : '-'}${m.qty}</td>
+      <td style="color:var(--text3);">${m.reason || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function openMovModal(type) {
+  openMovModalFor(type, null);
+}
+
+async function openMovModalFor(type, productId) {
+  setVal('mov-type', type);
+  const titles = { in: 'Entrada de Estoque', waste: 'Saída / Desperdício', adjustment: 'Ajuste de Estoque' };
+  document.getElementById('mov-title').textContent = titles[type] || 'Movimentação';
+  document.getElementById('mov-btn').className = 'btn btn-sm btn-' + (type === 'in' ? 'success' : type === 'waste' ? 'danger' : 'primary');
+
+  const sel = document.getElementById('mov-product');
+  const activeProds = products.filter(p => p.active);
+  sel.innerHTML = '<option value="">Selecione...</option>' + activeProds.map(p => `<option value="${p.id}">${p.name} (estoque: ${p.stock} ${p.unit})</option>`).join('');
+
+  if (productId) {
+    setVal('mov-product', productId);
+    showCurrentStock(productId);
+  } else {
+    document.getElementById('current-stock-info').style.display = 'none';
+  }
+
+  sel.onchange = () => showCurrentStock(parseInt(sel.value));
+  setVal('mov-qty', '');
+  setVal('mov-reason', '');
+  openModal('modal-movement');
+}
+
+function showCurrentStock(productId) {
+  const p = products.find(x => x.id === productId);
+  const info = document.getElementById('current-stock-info');
+  if (p) {
+    info.style.display = '';
+    setText('current-stock-val', p.stock + ' ' + p.unit);
+  } else {
+    info.style.display = 'none';
+  }
+}
+
+async function saveMovement() {
+  const type = val('mov-type');
+  const productId = parseInt(val('mov-product'));
+  const qty = parseInt(val('mov-qty'));
+  const reason = val('mov-reason');
+
+  if (!productId) { toast('Selecione o produto', 'error'); return; }
+  if (!qty || qty <= 0) { toast('Informe a quantidade', 'error'); return; }
+
+  const delta = (type === 'in' || type === 'adjustment') ? qty : -qty;
+  await updateProductStock(productId, delta, type, reason);
+
+  toast('Movimentação registrada', 'success');
+  closeModal('modal-movement');
+
+  products = await dbGetAll('products');
+  await renderView();
+  await checkLowStock();
+}
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+
+init();
+</script>
+</body>
+</html>

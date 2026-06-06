@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDV</title>
+<link rel="stylesheet" href="css/style.css?v=2.9">
+<style>
+  body { overflow: hidden; }
+  @media (max-width: 768px) {
+    body, .main {
+      height: 100svh !important;
+      min-height: 100svh !important;
+      overflow: hidden !important;
+    }
+  }
+  .pdv-topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 57px;
+  }
+  .table-select-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .table-select-btn.has-table { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2 id="bar-name">Bar do Ricardo</h2>
+    <small>Sistema PDV</small>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">Principal</div>
+    <a class="nav-link" href="index.html"><i class="icon">🏠</i> Dashboard</a>
+    <a class="nav-link active" href="pdv.html"><i class="icon">🛒</i> PDV / Venda</a>
+    <a class="nav-link" href="mesas.html"><i class="icon">🪑</i> Mesas</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="produtos.html"><i class="icon">📦</i> Produtos</a>
+    <a class="nav-link" href="estoque.html"><i class="icon">📊</i> Estoque</a>
+    <a class="nav-link" href="caixa.html"><i class="icon">💰</i> Caixa</a>
+    <a class="nav-link" href="relatorios.html"><i class="icon">📈</i> Relatórios</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="clientes.html"><i class="icon">👥</i> Clientes</a>
+    <div class="nav-group">Sistema</div>
+    <a class="nav-link" href="configuracoes.html"><i class="icon">⚙️</i> Configurações</a>
+  </nav>
+</aside>
+
+<div class="main" style="overflow:hidden;">
+  <div class="pdv-topbar">
+    <button class="table-select-btn" id="btn-select-table" onclick="openTablePicker()">
+      🪑 <span id="table-label">Selecionar Mesa</span>
+    </button>
+    <div class="search-bar" style="flex:1;">
+      <span>🔍</span>
+      <input type="text" id="search-input" placeholder="Buscar produto..." oninput="filterProducts()">
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="clearOrder()" title="Limpar pedido">🗑️<span class="desktop-only"> Limpar</span></button>
+    <a href="mesas.html" class="btn btn-secondary btn-sm">←<span class="desktop-only"> Voltar</span></a>
+  </div>
+
+  <div class="pdv-layout">
+    <!-- Catalog -->
+    <div class="pdv-catalog">
+      <div class="tabs mb-16" id="cat-tabs"></div>
+      <div class="product-grid" id="product-grid"></div>
+    </div>
+
+    <!-- Order Sidebar -->
+    <div class="pdv-sidebar">
+      <div class="pdv-sidebar-header">
+        <div class="flex items-center justify-between mb-8">
+          <div class="flex items-center" style="gap:6px;">
+            <button class="btn btn-ghost btn-sm mobile-only" onclick="toggleMobileCart()" style="padding:4px 8px;font-size:12px;margin-right:2px;">← Voltar</button>
+            <span style="font-weight:700;font-size:14px;">Pedido Atual</span>
+          </div>
+          <span id="item-count" class="badge badge-yellow">0 itens</span>
+        </div>
+        <div id="comanda-binding-section" style="margin-bottom: 8px;">
+          <!-- Populated dynamically -->
+        </div>
+        <div style="display:none;">
+          <input type="text" id="customer-name-input" name="no-autocomplete-client-name" autocomplete="new-password">
+          <div id="customer-suggestions" style="display:none;"></div>
+        </div>
+        <div id="order-time" style="font-size:11px;color:var(--text3);margin-top:4px;"></div>
+      </div>
+
+      <div class="pdv-items" id="order-items">
+        <div class="empty-state" id="order-empty">
+          <div class="empty-icon">🛒</div>
+          <p>Selecione uma mesa<br>e adicione produtos</p>
+        </div>
+      </div>
+
+      <div class="pdv-footer">
+        <div id="discount-row" style="display:none;">
+          <div class="flex items-center justify-between mb-8" style="font-size:13px;">
+            <span style="color:var(--text2);">Subtotal</span>
+            <span id="subtotal-val">R$ 0,00</span>
+          </div>
+          <div class="flex items-center justify-between mb-8" style="font-size:13px;">
+            <span style="color:var(--green);">Desconto</span>
+            <span id="discount-val" style="color:var(--green);">- R$ 0,00</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mb-16">
+          <span style="font-size:15px;font-weight:700;">Total</span>
+          <strong style="font-size:22px;color:var(--accent);" id="total-val">R$ 0,00</strong>
+        </div>
+        <div class="flex" style="gap:6px;margin-bottom:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="addDiscount()" title="Desconto">%</button>
+          <button class="btn btn-secondary btn-sm" onclick="addNote()" title="Observação">📝</button>
+          <button class="btn btn-secondary flex-1" style="font-size:12px;padding:6px 10px;" onclick="confirmLaunch()">Confirmar Lançamento</button>
+        </div>
+        <button class="btn btn-primary btn-block" style="padding:10px;" onclick="openPayment()">Cobrar (Fechar Conta)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Mobile Bottom Bar -->
+<div id="mobile-cart-bar" class="mobile-cart-bar" onclick="toggleMobileCart()">
+  <div class="flex items-center justify-between" style="width: 100%;">
+    <div class="flex items-center" style="gap:8px;">
+      <span style="font-size: 18px;">🛒</span>
+      <div style="text-align:left;">
+        <strong id="mobile-cart-count" style="color:var(--text);font-size:13px;display:block;">0 itens</strong>
+        <span id="mobile-cart-total" style="font-size: 11px; color: var(--text3);display:block;margin-top:1px;">R$ 0,00</span>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" style="padding:6px 12px;font-size:12px;">Ver Pedido ➔</button>
+  </div>
+</div>
+
+<!-- Modal: Vincular Mesa / Cliente -->
+<div class="modal-overlay" id="modal-assign-order">
+  <div class="modal-box" style="max-width: 440px;">
+    <div class="modal-header">
+      <h3>Vincular Pedido</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-assign-order')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; text-align:left; padding: 16px;">
+      
+      <!-- Option 1: Adicionar Item a Mesa -->
+      <div style="background: var(--bg3); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);">
+        <h4 style="margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--accent); display:flex; align-items:center; gap:6px;">🪑 Adicionar Item a Mesa</h4>
+        
+        <div id="assign-open-tables-container" style="margin-bottom: 8px; display:none;">
+          <label style="font-size: 11px; color: var(--text3); display: block; margin-bottom: 4px;">Selecione uma Mesa Aberta:</label>
+          <select id="assign-open-tables-select" style="width: 100%; padding: 6px 10px; background: var(--bg4); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; margin-bottom: 6px;"></select>
+          <button class="btn btn-secondary btn-sm btn-block" id="btn-assign-to-open-table" onclick="assignToSelectedOpenTable()">Lançar nesta Mesa</button>
+        </div>
+        
+        <div class="flex" style="gap: 8px; align-items: flex-end; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px; color: var(--text3); display: block; margin-bottom: 4px;">Lançar em Nova Mesa (Nº):</label>
+            <input type="number" id="assign-new-table-num" min="1" placeholder="Ex: 5" style="width: 100%; padding: 6px 10px; font-size: 13px; background: var(--bg4); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);">
+          </div>
+          <button class="btn btn-secondary" onclick="assignToNewTable()" style="height: 34px; font-size: 12px;">Abrir & Lançar</button>
+        </div>
+      </div>
+
+      <!-- Option 2: Clientes em Aberto -->
+      <div id="assign-open-clients-container" style="background: var(--bg3); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); display:none;">
+        <h4 style="margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--accent); display:flex; align-items:center; gap:6px;">👤 Clientes em Aberto</h4>
+        <label style="font-size: 11px; color: var(--text3); display: block; margin-bottom: 4px;">Selecione um Cliente Ativo:</label>
+        <select id="assign-open-clients-select" style="width: 100%; padding: 6px 10px; background: var(--bg4); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; margin-bottom: 6px;"></select>
+        <button class="btn btn-secondary btn-sm btn-block" id="btn-assign-to-open-client" onclick="assignToSelectedOpenClient()">Lançar neste Cliente</button>
+      </div>
+
+      <!-- Option 3: Abrir Novo Cliente -->
+      <div style="background: var(--bg3); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);">
+        <h4 style="margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--accent); display:flex; align-items:center; gap:6px;">➕ Abrir Novo Cliente</h4>
+        <label style="font-size: 11px; color: var(--text3); display: block; margin-bottom: 4px;">Nome do Novo Cliente Avulso:</label>
+        <div class="flex" style="gap: 8px;">
+          <input type="text" id="assign-new-client-name" placeholder="Ex: Marcos Balcão" style="flex: 1; padding: 6px 10px; font-size: 13px; background: var(--bg4); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);">
+          <button class="btn btn-secondary" onclick="assignToNewClient()" style="height: 34px; font-size: 12px;">Abrir & Lançar</button>
+        </div>
+      </div>
+
+      <!-- Option 4: Cliente Cadastrado -->
+      <div style="background: var(--bg3); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);">
+        <h4 style="margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--accent); display:flex; align-items:center; gap:6px;">👥 Cliente Cadastrado</h4>
+        <button class="btn btn-secondary btn-block" style="padding: 8px 12px; font-size: 12px;" onclick="assignToRegisteredCustomerPicker()">Selecionar Cliente Cadastrado</button>
+      </div>
+
+      <!-- Option 5: Venda Rápida -->
+      <div style="background: var(--bg3); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); border-color: rgba(59,130,246,0.3);">
+        <h4 style="margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--blue);">⚡ Venda Rápida</h4>
+        <button class="btn btn-primary btn-block" onclick="assignToDirectSale()">Pagar Agora (Caixa / Balcão)</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Selecionar Mesa -->
+<div class="modal-overlay" id="modal-pick-table">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Selecionar Mesa</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-pick-table')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tables-grid" id="pick-table-grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr));"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Observação -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>Observação</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-note')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Item</label>
+        <div id="note-item-name" style="font-weight:600;padding:8px 0;"></div>
+      </div>
+      <div class="form-group">
+        <label>Observação</label>
+        <input type="text" id="note-text" placeholder="Ex: sem gelo, bem passado...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-note')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNote()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Desconto -->
+<div class="modal-overlay" id="modal-discount">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-header">
+      <h3>Aplicar Desconto</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-discount')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="discount-type">
+          <option value="percent">Porcentagem (%)</option>
+          <option value="fixed">Valor fixo (R$)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Valor</label>
+        <input type="number" id="discount-value" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="removeDiscount()">Remover</button>
+      <button class="btn btn-primary" onclick="applyDiscount()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Pagamento -->
+<div class="modal-overlay" id="modal-payment">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>Fechar Conta</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-payment')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="card" style="background:var(--bg3);margin-bottom:16px;text-align:center;padding:16px;">
+        <div style="font-size:13px;color:var(--text2);">Total a pagar</div>
+        <div style="font-size:32px;font-weight:700;color:var(--accent);" id="pay-total">R$ 0,00</div>
+      </div>
+
+      <!-- Assistente de Divisão -->
+      <div class="form-group mb-16" style="background:var(--bg3);padding:10px 12px;border-radius:8px;border:1px solid var(--border);">
+        <label style="margin-bottom:4px;">Dividir conta (calculadora)</label>
+        <div class="flex items-center" style="gap:8px;">
+          <input type="number" id="split-people" min="1" value="1" style="width:70px;text-align:center;padding:6px;" oninput="updateSplitCalculator()">
+          <span style="font-size:12px;color:var(--text2);">pessoas = <strong id="split-each-val" style="color:var(--accent);">R$ 0,00</strong> por pessoa</span>
+        </div>
+      </div>
+
+      <!-- Valores por Forma de Pagamento -->
+      <div class="form-group mb-16">
+        <label style="margin-bottom:8px;font-weight:600;">Lançar Pagamentos (clique no botão para preencher valor total)</label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="flex items-center" style="gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;text-align:left;justify-content:flex-start;" onclick="setSinglePayment('dinheiro')">💵 Dinheiro</button>
+            <input type="number" id="pay-amt-dinheiro" placeholder="0,00" min="0" step="0.01" style="width:120px;text-align:right;padding:6px 10px;" oninput="recalcPayments()">
+          </div>
+          <div class="flex items-center" style="gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;text-align:left;justify-content:flex-start;" onclick="setSinglePayment('cartao_debito')">💳 Débito</button>
+            <input type="number" id="pay-amt-cartao_debito" placeholder="0,00" min="0" step="0.01" style="width:120px;text-align:right;padding:6px 10px;" oninput="recalcPayments()">
+          </div>
+          <div class="flex items-center" style="gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;text-align:left;justify-content:flex-start;" onclick="setSinglePayment('cartao_credito')">💳 Crédito</button>
+            <input type="number" id="pay-amt-cartao_credito" placeholder="0,00" min="0" step="0.01" style="width:120px;text-align:right;padding:6px 10px;" oninput="recalcPayments()">
+          </div>
+          <div class="flex items-center" style="gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;text-align:left;justify-content:flex-start;" onclick="setSinglePayment('pix')">⚡ PIX</button>
+            <input type="number" id="pay-amt-pix" placeholder="0,00" min="0" step="0.01" style="width:120px;text-align:right;padding:6px 10px;" oninput="recalcPayments()">
+          </div>
+          <div class="flex items-center" style="gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;text-align:left;justify-content:flex-start;" onclick="setSinglePayment('fiado')">📋 Fiado</button>
+            <input type="number" id="pay-amt-fiado" placeholder="0,00" min="0" step="0.01" style="width:120px;text-align:right;padding:6px 10px;" oninput="recalcPayments()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumo do Lançamento -->
+      <div class="card mb-16" style="background:var(--bg3);padding:12px;font-size:13px;border-color:var(--border);">
+        <div class="flex justify-between mb-4">
+          <span style="color:var(--text2);">Total lançado:</span>
+          <strong id="pay-launched-total">R$ 0,00</strong>
+        </div>
+        <div class="flex justify-between" id="pay-remaining-row">
+          <span id="pay-remaining-label" style="color:var(--text2);">Restante:</span>
+          <strong id="pay-remaining-val" style="color:var(--accent);">R$ 0,00</strong>
+        </div>
+      </div>
+
+      <div id="pay-change-row" style="display:none;" class="alert alert-success">
+        Troco: <strong id="pay-change-val">R$ 0,00</strong>
+      </div>
+
+      <!-- Cliente para o Fiado -->
+      <div id="fiado-row" style="display:none;background:rgba(245,158,11,.05);padding:12px;border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:12px;">
+        <div class="form-group" style="margin:0;">
+          <label style="color:var(--accent);">Cliente para o Fiado *</label>
+          <input type="text" id="fiado-customer-input" name="no-autocomplete-fiado-name" placeholder="Nome do cliente..." oninput="onFiadoCustomerInput()" autocomplete="new-password">
+          <div id="fiado-suggestions" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;max-height:120px;overflow-y:auto;position:relative;z-index:99;"></div>
+          <div id="fiado-customer-selected" style="display:none;margin-top:6px;padding:6px 10px;margin-bottom:0;" class="alert alert-info"></div>
+        </div>
+      </div>
+
+      <!-- Transferir para Mesa (visível apenas no Balcão) -->
+      <div id="transfer-row" style="display:none;background:rgba(59,130,246,.05);padding:12px;border:1px solid rgba(59,130,246,.2);border-radius:8px;margin-bottom:12px;">
+        <div class="form-group" style="margin:0;">
+          <label style="color:var(--blue);font-weight:600;margin-bottom:4px;">Enviar comanda para Mesa física</label>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Transfira este pedido para uma mesa física (livre ou ocupada).</p>
+          <div class="flex" style="gap:8px;">
+            <select id="transfer-table-select" style="flex:1;font-size:13px;padding:6px 10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;"></select>
+            <button class="btn btn-primary btn-sm" onclick="transferOrderToTable()">Transferir</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-payment')">Cancelar</button>
+      <button class="btn btn-success btn-lg flex-1" onclick="finalizeSale()">✓ Confirmar Pagamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-body" style="text-align:center;padding:30px 20px;">
+      <div style="font-size:36px;margin-bottom:12px;">❓</div>
+      <p id="confirm-msg" style="font-size:15px;margin-bottom:20px;"></p>
+      <div class="flex" style="gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Selecionar Cliente Rápido -->
+<div class="modal-overlay" id="modal-pick-customer">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>Selecionar Cliente</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-pick-customer')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <div class="search-bar mb-12" style="padding:6px 10px;">
+        <span>🔍</span>
+        <input type="text" id="pick-customer-search" placeholder="Filtrar clientes..." oninput="renderPickCustomerList()">
+      </div>
+      <div id="pick-customer-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+let currentTableId = null;
+let currentTable = null;
+let currentOrderId = null;
+let orderItems = [];
+let categories = [];
+let products = [];
+let allCustomers = [];
+let activeCat = null;
+let discountType = 'percent';
+let discountAmt = 0;
+let payMethod = 'dinheiro';
+let editingNoteItemId = null;
+let selectedFiadoCustomer = null;
+
+async function init() {
+  await initDB();
+  await seedInitialData();
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('bar-name').textContent = barName;
+  activePage();
+
+  categories = await dbGetAll('categories');
+  products = (await dbGetAll('products')).filter(p => p.active);
+  allCustomers = await dbGetAll('customers');
+
+  renderCatTabs();
+  renderProducts();
+
+  const params = new URLSearchParams(window.location.search);
+  const mesaId = params.get('mesa');
+  if (mesaId) {
+    await selectTable(parseInt(mesaId));
+  } else {
+    currentTableId = null;
+    currentTable = null;
+    currentOrderId = null;
+    orderItems = [];
+    discountAmt = 0;
+    selectedFiadoCustomer = null;
+    document.getElementById('table-label').textContent = 'Selecionar Mesa/Cliente';
+    document.getElementById('btn-select-table').classList.remove('has-table');
+    document.getElementById('order-time').textContent = '';
+    setVal('customer-name-input', '');
+    renderOrder();
+  }
+}
+
+function renderCatTabs() {
+  const tabs = document.getElementById('cat-tabs');
+  tabs.innerHTML = `<button class="tab-btn ${activeCat === null ? 'active' : ''}" onclick="setCat(null)">Todos</button>` +
+    categories.map(c => `<button class="tab-btn ${activeCat === c.id ? 'active' : ''}" onclick="setCat(${c.id})">${c.icon} ${c.name}</button>`).join('');
+}
+
+function setCat(id) {
+  activeCat = id;
+  renderCatTabs();
+  renderProducts();
+}
+
+function filterProducts() {
+  renderProducts();
+}
+
+function renderProducts() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  let list = products;
+  if (activeCat) list = list.filter(p => p.categoryId === activeCat);
+  if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
+
+  const catMap = {};
+  categories.forEach(c => catMap[c.id] = c);
+
+  const grid = document.getElementById('product-grid');
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">📦</div><p>Nenhum produto</p></div>';
+    return;
+  }
+  grid.innerHTML = list.map(p => {
+    const cat = catMap[p.categoryId] || {};
+    const outOfStock = p.stock <= 0 && p.minStock > 0;
+    return `<div class="product-btn ${outOfStock ? 'out-of-stock' : ''}" onclick="${outOfStock ? '' : 'addProduct(' + p.id + ')'}">
+      <div class="p-icon">${cat.icon || '📦'}</div>
+      <div class="p-name">${p.name}</div>
+      <div class="p-price">${fmt(p.price)}</div>
+      ${outOfStock ? '<div style="font-size:10px;color:var(--red);">Sem estoque</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+async function selectTable(tableId) {
+  currentTableId = tableId;
+  currentTable = await dbGet('tables', tableId);
+  let label = currentTable ? (currentTable.label || 'Mesa ' + currentTable.number) : '?';
+  if (currentTable && currentTable.number === 0) {
+    label = 'Balcão';
+  }
+  document.getElementById('table-label').textContent = label;
+  document.getElementById('btn-select-table').classList.add('has-table');
+
+  // Load or create order
+  let order = await getOpenOrderByTable(tableId);
+  if (!order) {
+    const oid = await dbAdd('orders', { tableId, status: 'open', createdAt: new Date().toISOString() });
+    order = await dbGet('orders', oid);
+    // Mark table as occupied
+    await dbPut('tables', { ...currentTable, status: 'occupied' });
+  }
+  currentOrderId = order.id;
+  document.getElementById('order-time').textContent = 'Aberto: ' + fmtTime(order.createdAt);
+
+  // If there were temporary items in memory, save them to this order!
+  if (orderItems.length > 0 && !orderItems[0].orderId) {
+    await saveTempCartToOrder(currentOrderId);
+    toast('Itens do carrinho salvos na comanda selecionada!', 'success');
+  }
+
+  // Save customer name to order if we typed one and the order doesn't have it
+  if (order && !order.customerName) {
+    const typedCust = val('customer-name-input').trim();
+    if (typedCust) {
+      order.customerName = typedCust;
+      await dbPut('orders', order);
+    }
+  }
+
+  orderItems = await getOrderItems(currentOrderId);
+  discountAmt = order.discount || 0;
+  discountType = order.discountType || 'percent';
+  setVal('customer-name-input', order.customerName || '');
+  const sidebar = document.querySelector('.pdv-sidebar');
+  if (sidebar) sidebar.classList.remove('open');
+  renderOrder();
+  closeModal('modal-pick-table');
+}
+
+async function addProduct(productId) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+
+  if (currentOrderId) {
+    const existing = orderItems.find(i => i.productId === productId && !i.note);
+    if (existing) {
+      existing.qty++;
+      await dbPut('order_items', existing);
+    } else {
+      const id = await dbAdd('order_items', {
+        orderId: currentOrderId,
+        productId,
+        name: product.name,
+        price: product.price,
+        qty: 1,
+        note: '',
+      });
+      orderItems.push({ id, orderId: currentOrderId, productId, name: product.name, price: product.price, qty: 1, note: '' });
+    }
+  } else {
+    // In-memory temp cart
+    const existing = orderItems.find(i => i.productId === productId && !i.note);
+    if (existing) {
+      existing.qty++;
+    } else {
+      const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      orderItems.push({ id: tempId, productId, name: product.name, price: product.price, qty: 1, note: '' });
+    }
+  }
+  renderOrder();
+}
+
+async function changeQty(itemId, delta) {
+  const item = orderItems.find(i => i.id === itemId);
+  if (!item) return;
+  
+  if (currentOrderId) {
+    item.qty += delta;
+    if (item.qty <= 0) {
+      await dbDelete('order_items', itemId);
+      orderItems = orderItems.filter(i => i.id !== itemId);
+    } else {
+      await dbPut('order_items', item);
+    }
+  } else {
+    item.qty += delta;
+    if (item.qty <= 0) {
+      orderItems = orderItems.filter(i => i.id !== itemId);
+    }
+  }
+  renderOrder();
+}
+
+function updateComandaBindingUI() {
+  const bindingSection = document.getElementById('comanda-binding-section');
+  if (!bindingSection) return;
+  
+  if (currentTable) {
+    const typeIcon = currentTable.type === 'client' ? '👤' : '🪑';
+    const typeLabel = currentTable.type === 'client' ? 'Cliente Avulso' : 'Mesa ' + currentTable.number;
+    const displayLabel = currentTable.type === 'client' ? currentTable.label : (currentTable.label || 'Mesa ' + currentTable.number);
+    bindingSection.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; margin-bottom: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <span style="font-size:12px; font-weight:700; color:var(--accent); display:flex; align-items:center; gap:6px;">
+          ${typeIcon} <span style="max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayLabel}</span>
+        </span>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 8px; font-size:11px; margin-left:auto; color:var(--red); background:rgba(239,68,68,0.1); border-radius:4px;" onclick="disconnectComanda()">Mudar</button>
+      </div>
+    `;
+  } else {
+    bindingSection.innerHTML = `
+      <button class="btn btn-secondary btn-block" style="padding:10px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:700; margin-bottom: 6px;" onclick="openAssignModal('launch')">
+        📋 Vincular Mesa / Cliente
+      </button>
+    `;
+  }
+}
+
+async function disconnectComanda() {
+  confirm('Deseja desvincular este pedido desta mesa/cliente? (Os itens continuarão no carrinho temporário)', async () => {
+    currentTableId = null;
+    currentTable = null;
+    currentOrderId = null;
+    
+    orderItems = orderItems.map(item => ({
+      id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      productId: item.productId,
+      name: item.name,
+      price: item.price,
+      qty: item.qty,
+      note: item.note || ''
+    }));
+    
+    document.getElementById('table-label').textContent = 'Selecionar Mesa/Cliente';
+    document.getElementById('btn-select-table').classList.remove('has-table');
+    document.getElementById('order-time').textContent = '';
+    setVal('customer-name-input', '');
+    renderOrder();
+  });
+}
+
+function renderOrder() {
+  updateComandaBindingUI();
+  const empty = document.getElementById('order-empty');
+  const container = document.getElementById('order-items');
+  const mobileBar = document.getElementById('mobile-cart-bar');
+
+  if (!orderItems.length) {
+    if (empty) empty.style.display = '';
+    container.querySelectorAll('.order-item').forEach(e => e.remove());
+    setText('item-count', '0 itens');
+    setText('total-val', fmt(0));
+    document.getElementById('discount-row').style.display = 'none';
+    if (mobileBar) {
+      mobileBar.classList.remove('active');
+      const sidebar = document.querySelector('.pdv-sidebar');
+      if (sidebar) sidebar.classList.remove('open');
+    }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const itemEls = container.querySelectorAll('.order-item');
+  itemEls.forEach(e => e.remove());
+
+  const subtotal = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+  let discount = 0;
+  if (discountAmt > 0) {
+    discount = discountType === 'percent' ? subtotal * discountAmt / 100 : Math.min(discountAmt, subtotal);
+  }
+  const total = subtotal - discount;
+
+  orderItems.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'order-item';
+    const itemIdArg = typeof item.id === 'string' ? `'${item.id}'` : item.id;
+    div.innerHTML = `
+      <div style="flex:1;">
+        <div class="oi-name">${item.name}</div>
+        ${item.note ? `<div style="font-size:11px;color:var(--text3);font-style:italic;">${item.note}</div>` : ''}
+        <div class="oi-price">${fmt(item.price * item.qty)}</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty(${itemIdArg}, -1)">−</button>
+        <span class="qty-num">${item.qty}</span>
+        <button class="qty-btn" onclick="changeQty(${itemIdArg}, 1)">+</button>
+        <button class="btn-icon" style="margin-left:2px;font-size:11px;" onclick="openNoteModal(${itemIdArg})" title="Observação">📝</button>
+        <button class="btn-icon" style="margin-left:2px;font-size:11px;color:var(--red);background:rgba(239,68,68,0.1);" onclick="removeItemCompletely(${itemIdArg})" title="Excluir item do pedido">🗑️</button>
+      </div>
+    `;
+    container.insertBefore(div, null);
+  });
+
+  const totalQty = orderItems.reduce((s, i) => s + i.qty, 0);
+  setText('item-count', totalQty + ' ite' + (totalQty === 1 ? 'm' : 'ns'));
+  setText('total-val', fmt(total));
+
+  if (discountAmt > 0) {
+    document.getElementById('discount-row').style.display = '';
+    setText('subtotal-val', fmt(subtotal));
+    setText('discount-val', '- ' + fmt(discount));
+  } else {
+    document.getElementById('discount-row').style.display = 'none';
+  }
+
+  if (mobileBar) {
+    mobileBar.classList.add('active');
+    setText('mobile-cart-count', totalQty + ' ite' + (totalQty === 1 ? 'm' : 'ns'));
+    setText('mobile-cart-total', fmt(total));
+  }
+}
+
+function getTotal() {
+  const subtotal = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+  let discount = 0;
+  if (discountAmt > 0) {
+    discount = discountType === 'percent' ? subtotal * discountAmt / 100 : Math.min(discountAmt, subtotal);
+  }
+  return subtotal - discount;
+}
+
+function clearOrder() {
+  const hasItems = orderItems.length > 0;
+  const hasCustomer = val('customer-name-input').trim().length > 0;
+  if (!hasItems && !hasCustomer) return;
+  
+  confirm('Limpar todos os itens e dados do cliente deste pedido?', async () => {
+    if (currentOrderId) {
+      for (const i of orderItems) await dbDelete('order_items', i.id);
+      orderItems = [];
+      setVal('customer-name-input', '');
+      await saveCustomerNameToOrder();
+    } else {
+      orderItems = [];
+      setVal('customer-name-input', '');
+    }
+    renderOrder();
+    toast('Pedido limpo');
+  });
+}
+
+async function removeItemCompletely(itemId) {
+  confirm('Remover este item do pedido?', async () => {
+    if (currentOrderId) {
+      await dbDelete('order_items', itemId);
+    }
+    orderItems = orderItems.filter(i => i.id !== itemId);
+    renderOrder();
+    toast('Item removido');
+  });
+}
+
+async function openTablePicker() {
+  const tables = await dbGetAll('tables');
+  const balcao = tables.find(t => t.number === 0);
+  const physicalTables = tables.filter(t => t.number !== 0 && t.type !== 'client').sort((a, b) => a.number - b.number);
+  const clientTables = tables.filter(t => t.type === 'client').sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+
+  const grid = document.getElementById('pick-table-grid');
+  let html = '';
+  
+  if (balcao) {
+    html += `
+      <div class="table-card ${balcao.status}" onclick="selectTable(${balcao.id})" style="cursor:pointer;grid-column:1/-1;background:rgba(245,158,11,.08);border-color:var(--accent);margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;">
+        <span style="font-size:18px;">${balcao.status === 'occupied' ? '🔴' : '🟢'}</span>
+        <div style="text-align:left;">
+          <div class="t-num" style="font-size:16px;font-weight:700;line-height:1.2;">⚡ Venda Rápida / Balcão</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">Sem mesa física (para viagem)</div>
+        </div>
+      </div>
+    `;
+  }
+
+  html += physicalTables.map(t => `
+    <div class="table-card ${t.status}" onclick="selectTable(${t.id})" style="cursor:pointer;">
+      <div style="font-size:11px;margin-bottom:2px;">${t.status === 'occupied' ? '🔴' : '🟢'}</div>
+      <div class="t-num">${t.number}</div>
+      <div class="t-label">${t.label || 'Mesa ' + t.number}</div>
+    </div>
+  `).join('');
+
+  if (clientTables.length > 0) {
+    const customers = await dbGetAll('customers');
+    const registeredNames = new Set(customers.map(c => c.name.toLowerCase().trim()));
+    html += `
+      <div style="grid-column: 1/-1; margin: 12px 0 6px 0; font-size: 13px; font-weight: bold; color: var(--text2); display: flex; align-items: center; gap: 8px;">
+        <span>👤 Clientes Ativos</span>
+        <span style="flex: 1; height: 1px; background: var(--border);"></span>
+      </div>
+    `;
+    html += clientTables.map(t => {
+      const isRegistered = registeredNames.has((t.label || '').toLowerCase().trim());
+      const labelText = isRegistered ? 'Cliente Cadastrado' : 'Cliente Avulso';
+      return `
+        <div class="table-card occupied" onclick="selectTable(${t.id})" style="cursor:pointer; background:rgba(245,158,11,.05); border-color:var(--accent);">
+          <div style="font-size:11px;margin-bottom:2px;">👤</div>
+          <div class="t-num" style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.label}">${t.label}</div>
+          <div class="t-label">${labelText}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  grid.innerHTML = html;
+  openModal('modal-pick-table');
+}
+
+function openNoteModal(itemId) {
+  editingNoteItemId = itemId;
+  const item = orderItems.find(i => i.id === itemId);
+  if (!item) return;
+  document.getElementById('note-item-name').textContent = item.name;
+  setVal('note-text', item.note || '');
+  openModal('modal-note');
+}
+
+async function saveNote() {
+  const item = orderItems.find(i => i.id === editingNoteItemId);
+  if (!item) return;
+  item.note = val('note-text');
+  if (currentOrderId) {
+    await dbPut('order_items', item);
+  }
+  renderOrder();
+  closeModal('modal-note');
+}
+
+function addDiscount() {
+  setVal('discount-type', discountType);
+  setVal('discount-value', discountAmt || '');
+  openModal('modal-discount');
+}
+
+function applyDiscount() {
+  discountType = val('discount-type');
+  discountAmt = parseFloat(val('discount-value')) || 0;
+  closeModal('modal-discount');
+  renderOrder();
+}
+
+function removeDiscount() {
+  discountAmt = 0;
+  closeModal('modal-discount');
+  renderOrder();
+}
+
+function addNote() {
+  if (orderItems.length === 0) { toast('Nenhum item no pedido', 'error'); return; }
+  // Open note for first item, or show a picker
+  openNoteModal(orderItems[orderItems.length - 1].id);
+}
+
+async function openPayment() {
+  if (!orderItems.length) { toast('Pedido vazio', 'error'); return; }
+  if (!currentOrderId) {
+    openAssignModal('payment');
+    return;
+  }
+  const total = getTotal();
+  setText('pay-total', fmt(total));
+
+  // Reset inputs
+  setVal('pay-amt-dinheiro', total.toFixed(2));
+  setVal('pay-amt-cartao_debito', '');
+  setVal('pay-amt-cartao_credito', '');
+  setVal('pay-amt-pix', '');
+  setVal('pay-amt-fiado', '');
+
+  setVal('split-people', '1');
+  updateSplitCalculator();
+
+  selectedFiadoCustomer = null;
+  const custName = val('customer-name-input').trim();
+  setVal('fiado-customer-input', custName);
+  if (custName) {
+    // If there is a name already, try selecting it
+    const match = allCustomers.find(c => c.name.toLowerCase() === custName.toLowerCase());
+    if (match) {
+      selectFiadoCustomer(match.id, match.name);
+    } else {
+      selectFiadoCustomer(null, custName);
+    }
+  } else {
+    document.getElementById('fiado-customer-selected').style.display = 'none';
+  }
+
+  // Show/hide and load transfer tables if we are on Balcão (number 0)
+  const transferRow = document.getElementById('transfer-row');
+  if (currentTable && currentTable.number === 0) {
+    transferRow.style.display = '';
+    await loadTransferTables();
+  } else {
+    transferRow.style.display = 'none';
+  }
+
+  recalcPayments();
+  openModal('modal-payment');
+}
+
+function setSinglePayment(method) {
+  const total = getTotal();
+  const methods = ['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'fiado'];
+  methods.forEach(m => {
+    setVal('pay-amt-' + m, m === method ? total.toFixed(2) : '');
+  });
+  if (method === 'fiado') {
+    const name = val('customer-name-input').trim();
+    if (name) {
+      setVal('fiado-customer-input', name);
+      onFiadoCustomerInput();
+    }
+  }
+  recalcPayments();
+}
+
+function updateSplitCalculator() {
+  const total = getTotal();
+  const people = parseInt(val('split-people')) || 1;
+  const each = total / Math.max(1, people);
+  setText('split-each-val', fmt(each));
+}
+
+function recalcPayments() {
+  const total = getTotal();
+  const dinero = parseFloat(val('pay-amt-dinheiro')) || 0;
+  const debito = parseFloat(val('pay-amt-cartao_debito')) || 0;
+  const credito = parseFloat(val('pay-amt-cartao_credito')) || 0;
+  const pix = parseFloat(val('pay-amt-pix')) || 0;
+  const fiado = parseFloat(val('pay-amt-fiado')) || 0;
+
+  const nonCash = debito + credito + pix + fiado;
+  const remainingForCash = Math.max(0, total - nonCash);
+
+  let change = 0;
+  let cashUsed = dinero;
+  let remaining = 0;
+
+  if (dinero >= remainingForCash) {
+    change = dinero - remainingForCash;
+    cashUsed = remainingForCash;
+    remaining = 0;
+  } else {
+    change = 0;
+    remaining = remainingForCash - dinero;
+  }
+
+  const totalLaunched = nonCash + cashUsed;
+  setText('pay-launched-total', fmt(totalLaunched));
+
+  const remainingEl = document.getElementById('pay-remaining-val');
+  const remainingRow = document.getElementById('pay-remaining-row');
+  const remainingLabel = document.getElementById('pay-remaining-label');
+  const changeRow = document.getElementById('pay-change-row');
+
+  if (remaining > 0) {
+    remainingRow.style.display = '';
+    remainingLabel.textContent = 'Restante:';
+    remainingEl.textContent = fmt(remaining);
+    remainingEl.style.color = 'var(--accent)';
+    changeRow.style.display = 'none';
+  } else {
+    remainingRow.style.display = 'none';
+    if (change > 0) {
+      changeRow.style.display = '';
+      setText('pay-change-val', fmt(change));
+    } else {
+      changeRow.style.display = 'none';
+    }
+  }
+
+  const fiadoRow = document.getElementById('fiado-row');
+  if (fiado > 0) {
+    fiadoRow.style.display = '';
+  } else {
+    fiadoRow.style.display = 'none';
+  }
+}
+
+function onCustomerInput() {
+  const q = val('customer-name-input').toLowerCase();
+  const box = document.getElementById('customer-suggestions');
+  if (!q || q.length < 2) { box.style.display = 'none'; return; }
+  const matches = allCustomers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 5);
+  if (!matches.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  box.innerHTML = matches.map(c => `
+    <div onclick="selectCustomerName('${c.name.replace(/'/g,"\\'")}', ${c.id})"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      👤 ${c.name}
+    </div>
+  `).join('');
+}
+
+function selectCustomerName(name, id) {
+  setVal('customer-name-input', name);
+  document.getElementById('customer-suggestions').style.display = 'none';
+  saveCustomerNameToOrder();
+}
+
+async function saveCustomerNameToOrder() {
+  if (!currentOrderId) return;
+  const order = await dbGet('orders', currentOrderId);
+  if (!order) return;
+  await dbPut('orders', { ...order, customerName: val('customer-name-input').trim() });
+}
+
+function onFiadoCustomerInput() {
+  const q = val('fiado-customer-input').toLowerCase();
+  const box = document.getElementById('fiado-suggestions');
+  selectedFiadoCustomer = null;
+  document.getElementById('fiado-customer-selected').style.display = 'none';
+  if (!q || q.length < 1) { box.style.display = 'none'; return; }
+  const matches = allCustomers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 5);
+  box.style.display = '';
+  box.innerHTML = matches.map(c => `
+    <div onclick="selectFiadoCustomer(${c.id}, '${c.name.replace(/'/g,"\\'")}' )"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+      👤 ${c.name}
+    </div>
+  `).join('') + `<div onclick="selectFiadoCustomer(null, '${q}')"
+    style="padding:8px 12px;cursor:pointer;font-size:13px;color:var(--accent);"
+    onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+    + Criar novo cliente "${val('fiado-customer-input')}"
+  </div>`;
+}
+
+function selectFiadoCustomer(id, name) {
+  selectedFiadoCustomer = { id, name };
+  setVal('fiado-customer-input', name);
+  document.getElementById('fiado-suggestions').style.display = 'none';
+  const el = document.getElementById('fiado-customer-selected');
+  el.style.display = '';
+  el.textContent = id ? '✓ Cliente: ' + name : '+ Novo cliente: ' + name;
+}
+
+async function finalizeSale() {
+  if (!orderItems.length) return;
+  const total = getTotal();
+
+  const dinero = parseFloat(val('pay-amt-dinheiro')) || 0;
+  const debito = parseFloat(val('pay-amt-cartao_debito')) || 0;
+  const credito = parseFloat(val('pay-amt-cartao_credito')) || 0;
+  const pix = parseFloat(val('pay-amt-pix')) || 0;
+  const fiado = parseFloat(val('pay-amt-fiado')) || 0;
+
+  const nonCash = debito + credito + pix + fiado;
+  const cashUsed = Math.min(dinero, Math.max(0, total - nonCash));
+  const totalPaid = nonCash + cashUsed;
+
+  if (totalPaid < total - 0.01) {
+    toast('Valor total pago não cobre o valor da venda', 'error');
+    return;
+  }
+
+  if (fiado > 0) {
+    const fiadoName = val('fiado-customer-input').trim();
+    if (!fiadoName) { toast('Informe o nome do cliente para o fiado', 'error'); return; }
+    if (!selectedFiadoCustomer) {
+      selectedFiadoCustomer = { id: null, name: fiadoName };
+    }
+  }
+
+  const subtotal = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = subtotal - total;
+
+  const customerName = val('customer-name-input').trim();
+  const fiadoName = selectedFiadoCustomer ? selectedFiadoCustomer.name : customerName;
+
+  // Build payments array
+  const payments = [];
+  if (cashUsed > 0) payments.push({ method: 'dinheiro', amount: cashUsed });
+  if (debito > 0) payments.push({ method: 'cartao_debito', amount: debito });
+  if (credito > 0) payments.push({ method: 'cartao_credito', amount: credito });
+  if (pix > 0) payments.push({ method: 'pix', amount: pix });
+  if (fiado > 0) payments.push({ method: 'fiado', amount: fiado });
+
+  const userStr = sessionStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const sellerId = user ? user.id : null;
+  const sellerName = user ? user.name : 'Desconhecido';
+
+  // Save sale
+  const saleId = await dbAdd('sales', {
+    orderId: currentOrderId,
+    tableId: currentTableId,
+    tableNum: currentTable ? currentTable.number : null,
+    customerName: fiadoName || customerName,
+    total,
+    subtotal,
+    discount,
+    paymentMethod: payments.length === 1 ? payments[0].method : 'multiplo',
+    payments,
+    createdAt: new Date().toISOString(),
+    sellerId,
+    sellerName,
+  });
+
+  // Register fiado
+  if (fiado > 0 && selectedFiadoCustomer) {
+    const customer = await findOrCreateCustomer(selectedFiadoCustomer.name);
+    if (customer) {
+      await recordFiado(customer.id, customer.name, saleId, fiado);
+    }
+    allCustomers = await dbGetAll('customers');
+  }
+
+  // Save sale items
+  for (const item of orderItems) {
+    await dbAdd('sale_items', { saleId, productId: item.productId, name: item.name, price: item.price, qty: item.qty });
+    // Decrement stock
+    const p = products.find(p2 => p2.id === item.productId);
+    if (p && p.minStock > 0) {
+      await updateProductStock(item.productId, -item.qty, 'sale', 'Venda #' + saleId);
+    }
+  }
+
+  // Clear order
+  for (const i of orderItems) await dbDelete('order_items', i.id);
+  await dbDelete('orders', currentOrderId);
+
+  // Free the table or delete client card if it's a client avulso
+  if (currentTable) {
+    if (currentTable.type === 'client') {
+      await dbDelete('tables', currentTable.id);
+    } else {
+      await dbPut('tables', { ...currentTable, status: 'free' });
+    }
+  }
+
+  closeModal('modal-payment');
+  toast('Venda finalizada! ' + fmt(total), 'success');
+
+  currentOrderId = null;
+  currentTableId = null;
+  currentTable = null;
+  orderItems = [];
+  discountAmt = 0;
+  selectedFiadoCustomer = null;
+  document.getElementById('table-label').textContent = 'Selecionar Mesa';
+  document.getElementById('btn-select-table').classList.remove('has-table');
+  document.getElementById('order-time').textContent = '';
+  setVal('customer-name-input', '');
+  renderOrder();
+
+  // Refresh products (stock may have changed)
+  products = (await dbGetAll('products')).filter(p => p.active);
+  renderProducts();
+}
+
+function toggleMobileCart() {
+  const sidebar = document.querySelector('.pdv-sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('open');
+  }
+}
+
+async function loadTransferTables() {
+  const select = document.getElementById('transfer-table-select');
+  if (!select) return;
+
+  const tables = await dbGetAll('tables');
+  const physicalTables = tables.filter(t => t.number !== 0 && t.type !== 'client').sort((a, b) => a.number - b.number);
+
+  let options = '<option value="">Selecionar Mesa...</option>';
+  for (const t of physicalTables) {
+    if (t.status === 'occupied') {
+      const order = await getOpenOrderByTable(t.id);
+      let total = 0;
+      if (order) {
+        const items = await getOrderItems(order.id);
+        total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      }
+      options += `<option value="${t.id}">Mesa ${t.number} (Ocupada - ${fmt(total)})</option>`;
+    } else {
+      options += `<option value="${t.id}">Mesa ${t.number} (Livre)</option>`;
+    }
+  }
+  select.innerHTML = options;
+}
+
+async function transferOrderToTable() {
+  const targetTableId = parseInt(val('transfer-table-select'));
+  if (!targetTableId) { toast('Selecione a mesa de destino', 'error'); return; }
+
+  const targetTable = await dbGet('tables', targetTableId);
+  if (!targetTable) return;
+
+  const targetOrder = await getOpenOrderByTable(targetTableId);
+
+  if (targetOrder) {
+    // Target table is occupied, merge items
+    const balcaoItems = await getOrderItems(currentOrderId);
+    const targetItems = await getOrderItems(targetOrder.id);
+    
+    for (const item of balcaoItems) {
+      const existing = targetItems.find(i => i.productId === item.productId && i.note === item.note);
+      if (existing) {
+        existing.qty += item.qty;
+        await dbPut('order_items', existing);
+        await dbDelete('order_items', item.id);
+      } else {
+        item.orderId = targetOrder.id;
+        await dbPut('order_items', item);
+      }
+    }
+    // Delete Balcão order
+    await dbDelete('orders', currentOrderId);
+  } else {
+    // Target table is free, transfer order directly
+    const order = await dbGet('orders', currentOrderId);
+    order.tableId = targetTableId;
+    await dbPut('orders', order);
+
+    // Set target table status to occupied
+    targetTable.status = 'occupied';
+    await dbPut('tables', targetTable);
+  }
+
+  // Free the Balcão (Mesa 0)
+  if (currentTable) {
+    currentTable.status = 'free';
+    await dbPut('tables', currentTable);
+  }
+
+  closeModal('modal-payment');
+  toast(`Pedido transferido para a Mesa ${targetTable.number}!`, 'success');
+
+  // Load the target table in PDV
+  await selectTable(targetTableId);
+}
+
+async function openCustomerPicker() {
+  allCustomers = await dbGetAll('customers');
+  setVal('pick-customer-search', '');
+  renderPickCustomerList();
+  openModal('modal-pick-customer');
+}
+
+function renderPickCustomerList() {
+  const q = val('pick-customer-search').toLowerCase();
+  const list = allCustomers.filter(c => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)));
+  const container = document.getElementById('pick-customer-list');
+  
+  if (!list.length) {
+    container.innerHTML = '<div style="color:var(--text3);text-align:center;padding:12px;font-size:13px;">Nenhum cliente cadastrado</div>';
+    return;
+  }
+  
+  container.innerHTML = list.map(c => `
+    <div onclick="pickCustomer('${c.name.replace(/'/g,"\\'")}', ${c.id})"
+      style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">
+      <div>
+        <strong style="color:var(--text);">${c.name}</strong>
+        ${c.phone ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">📱 ${c.phone}</div>` : ''}
+      </div>
+      <span>➔</span>
+    </div>
+  `).join('');
+}
+
+function pickCustomer(name, id) {
+  if (isAssigningToRegistered) {
+    isAssigningToRegistered = false;
+    closeModal('modal-pick-customer');
+    
+    // Create client avulso table record
+    dbAdd('tables', { type: 'client', number: null, capacity: 1, label: name, status: 'occupied' }).then(async (newId) => {
+      // Create open order
+      const oid = await dbAdd('orders', { tableId: newId, status: 'open', customerName: name, createdAt: new Date().toISOString() });
+      await saveTempCartToOrder(oid);
+      
+      if (assignMode === 'payment') {
+        await selectTable(newId);
+        await openPayment();
+      } else {
+        toast('Lançamento realizado com sucesso!', 'success');
+        setTimeout(() => {
+          window.location.href = 'mesas.html';
+        }, 600);
+      }
+    });
+  } else {
+    selectCustomerName(name, id);
+    closeModal('modal-pick-customer');
+  }
+}
+
+function onCustomerFocus() {
+  const q = val('customer-name-input').toLowerCase();
+  const box = document.getElementById('customer-suggestions');
+  
+  if (!q) {
+    if (!allCustomers.length) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.innerHTML = allCustomers.slice(0, 5).map(c => `
+      <div onclick="selectCustomerName('${c.name.replace(/'/g,"\\'")}', ${c.id})"
+        style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);"
+        onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        👤 ${c.name}
+      </div>
+    `).join('');
+  } else {
+    onCustomerInput();
+  }
+}
+
+// Close suggestion box when clicking outside
+document.addEventListener('click', e => {
+  const input = document.getElementById('customer-name-input');
+  const box = document.getElementById('customer-suggestions');
+  if (input && box && e.target !== input && !box.contains(e.target)) {
+    box.style.display = 'none';
+  }
+});
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+
+let assignMode = 'launch'; // 'launch' or 'payment'
+let isAssigningToRegistered = false;
+
+async function openAssignModal(mode) {
+  assignMode = mode;
+  
+  // Load occupied tables and clients
+  const tables = await dbGetAll('tables');
+  const physicalTablesOpen = tables.filter(t => t.number !== 0 && t.type !== 'client' && t.status === 'occupied').sort((a, b) => a.number - b.number);
+  const clientTablesOpen = tables.filter(t => t.type === 'client' && t.status === 'occupied').sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+  
+  // Populate physical tables select
+  const tablesSelect = document.getElementById('assign-open-tables-select');
+  const tablesContainer = document.getElementById('assign-open-tables-container');
+  const btnAssignOpenTable = document.getElementById('btn-assign-to-open-table');
+  if (physicalTablesOpen.length > 0) {
+    tablesContainer.style.display = '';
+    btnAssignOpenTable.style.display = '';
+    
+    let options = '';
+    for (const t of physicalTablesOpen) {
+      const order = await getOpenOrderByTable(t.id);
+      const cust = order && order.customerName ? ` (${order.customerName})` : '';
+      options += `<option value="${t.id}">Mesa ${t.number}${cust}</option>`;
+    }
+    tablesSelect.innerHTML = options;
+  } else {
+    tablesContainer.style.display = 'none';
+    btnAssignOpenTable.style.display = 'none';
+  }
+  
+  // Populate client tables select
+  const clientsSelect = document.getElementById('assign-open-clients-select');
+  const clientsContainer = document.getElementById('assign-open-clients-container');
+  const btnAssignOpenClient = document.getElementById('btn-assign-to-open-client');
+  if (clientTablesOpen.length > 0) {
+    clientsContainer.style.display = '';
+    btnAssignOpenClient.style.display = '';
+    clientsSelect.innerHTML = clientTablesOpen.map(t => `<option value="${t.id}">${t.label}</option>`).join('');
+  } else {
+    clientsContainer.style.display = 'none';
+    btnAssignOpenClient.style.display = 'none';
+  }
+  
+  // Reset text inputs
+  setVal('assign-new-table-num', '');
+  const typedName = val('customer-name-input').trim();
+  setVal('assign-new-client-name', typedName);
+  
+  openModal('modal-assign-order');
+}
+
+async function saveTempCartToOrder(orderId) {
+  for (const item of orderItems) {
+    const items = await getOrderItems(orderId);
+    const existing = items.find(i => i.productId === item.productId && !i.note);
+    if (existing) {
+      existing.qty += item.qty;
+      await dbPut('order_items', existing);
+    } else {
+      await dbAdd('order_items', {
+        orderId,
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        qty: item.qty,
+        note: item.note || '',
+      });
+    }
+  }
+}
+
+async function assignToDirectSale() {
+  const tables = await dbGetAll('tables');
+  const balcao = tables.find(t => t.number === 0);
+  if (!balcao) return;
+  
+  let order = await getOpenOrderByTable(balcao.id);
+  if (!order) {
+    const oid = await dbAdd('orders', { tableId: balcao.id, status: 'open', createdAt: new Date().toISOString() });
+    order = await dbGet('orders', oid);
+    await dbPut('tables', { ...balcao, status: 'occupied' });
+  }
+  
+  await saveTempCartToOrder(order.id);
+  
+  currentTableId = balcao.id;
+  currentTable = balcao;
+  currentOrderId = order.id;
+  orderItems = await getOrderItems(currentOrderId);
+  
+  closeModal('modal-assign-order');
+  await openPayment();
+}
+
+async function assignToSelectedOpenTable() {
+  const tableId = parseInt(val('assign-open-tables-select'));
+  if (!tableId) return;
+  
+  const order = await getOpenOrderByTable(tableId);
+  if (!order) return;
+  
+  await saveTempCartToOrder(order.id);
+  closeModal('modal-assign-order');
+  
+  if (assignMode === 'payment') {
+    await selectTable(tableId);
+    await openPayment();
+  } else {
+    toast('Lançamento realizado com sucesso!', 'success');
+    setTimeout(() => {
+      window.location.href = 'mesas.html';
+    }, 600);
+  }
+}
+
+async function assignToNewTable() {
+  const number = parseInt(val('assign-new-table-num'));
+  if (!number || number < 1) { toast('Informe o número da mesa', 'error'); return; }
+  
+  const allTables = await dbGetAll('tables');
+  let table = allTables.find(t => t.number === number && t.type !== 'client');
+  
+  if (!table) {
+    const nid = await dbAdd('tables', { number, capacity: 4, status: 'free', label: `Mesa ${number}` });
+    table = await dbGet('tables', nid);
+  }
+  
+  if (table.status === 'occupied') {
+    toast(`A Mesa ${number} já está ocupada! Use a opção de mesa ocupada acima ou escolha outro número.`, 'error');
+    return;
+  }
+  
+  table.status = 'occupied';
+  await dbPut('tables', table);
+  
+  const oid = await dbAdd('orders', { tableId: table.id, status: 'open', createdAt: new Date().toISOString() });
+  await saveTempCartToOrder(oid);
+  
+  closeModal('modal-assign-order');
+  
+  if (assignMode === 'payment') {
+    await selectTable(table.id);
+    await openPayment();
+  } else {
+    toast('Lançamento realizado com sucesso!', 'success');
+    setTimeout(() => {
+      window.location.href = 'mesas.html';
+    }, 600);
+  }
+}
+
+async function assignToSelectedOpenClient() {
+  const tableId = parseInt(val('assign-open-clients-select'));
+  if (!tableId) return;
+  
+  const order = await getOpenOrderByTable(tableId);
+  if (!order) return;
+  
+  await saveTempCartToOrder(order.id);
+  closeModal('modal-assign-order');
+  
+  if (assignMode === 'payment') {
+    await selectTable(tableId);
+    await openPayment();
+  } else {
+    toast('Lançamento realizado com sucesso!', 'success');
+    setTimeout(() => {
+      window.location.href = 'mesas.html';
+    }, 600);
+  }
+}
+
+async function assignToNewClient() {
+  const name = val('assign-new-client-name').trim();
+  if (!name) { toast('Informe o nome do cliente', 'error'); return; }
+  
+  const newId = await dbAdd('tables', { type: 'client', number: null, capacity: 1, label: name, status: 'occupied' });
+  const oid = await dbAdd('orders', { tableId: newId, status: 'open', customerName: name, createdAt: new Date().toISOString() });
+  
+  await saveTempCartToOrder(oid);
+  closeModal('modal-assign-order');
+  
+  if (assignMode === 'payment') {
+    await selectTable(newId);
+    await openPayment();
+  } else {
+    toast('Lançamento realizado com sucesso!', 'success');
+    setTimeout(() => {
+      window.location.href = 'mesas.html';
+    }, 600);
+  }
+}
+
+function assignToRegisteredCustomerPicker() {
+  closeModal('modal-assign-order');
+  isAssigningToRegistered = true;
+  openCustomerPicker();
+}
+
+async function confirmLaunch() {
+  if (!orderItems.length) {
+    toast('Adicione pelo menos um produto', 'error');
+    return;
+  }
+  if (!currentOrderId) {
+    openAssignModal('launch');
+    return;
+  }
+  
+  await saveCustomerNameToOrder();
+  
+  toast('Lançamento realizado com sucesso!', 'success');
+  setTimeout(() => {
+    window.location.href = 'mesas.html';
+  }, 600);
+}
+
+init();
+</script>
+</body>
+</html>

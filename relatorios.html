@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatórios</title>
+<link rel="stylesheet" href="css/style.css?v=2.5">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2 id="bar-name">Bar do Ricardo</h2>
+    <small>Sistema PDV</small>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">Principal</div>
+    <a class="nav-link" href="index.html"><i class="icon">🏠</i> Dashboard</a>
+    <a class="nav-link" href="pdv.html"><i class="icon">🛒</i> PDV / Venda</a>
+    <a class="nav-link" href="mesas.html"><i class="icon">🪑</i> Mesas</a>
+    <div class="nav-group">Gestão</div>
+    <a class="nav-link" href="clientes.html"><i class="icon">👥</i> Clientes</a>
+    <a class="nav-link" href="produtos.html"><i class="icon">📦</i> Produtos</a>
+    <a class="nav-link" href="estoque.html"><i class="icon">📊</i> Estoque</a>
+    <a class="nav-link" href="caixa.html"><i class="icon">💰</i> Caixa</a>
+    <a class="nav-link active" href="relatorios.html"><i class="icon">📈</i> Relatórios</a>
+    <div class="nav-group">Sistema</div>
+    <a class="nav-link" href="configuracoes.html"><i class="icon">⚙️</i> Configurações</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1>Relatórios</h1>
+    <div class="topbar-right">
+      <select id="period-select" onchange="loadAll()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:13px;">
+        <option value="today">Hoje</option>
+        <option value="yesterday">Ontem</option>
+        <option value="week">Últimos 7 dias</option>
+        <option value="month">Este mês</option>
+        <option value="custom">Personalizado</option>
+      </select>
+      <div id="custom-dates" style="display:none;gap:8px;" class="flex">
+        <input type="date" id="date-from" onchange="loadAll()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:13px;">
+        <input type="date" id="date-to" onchange="loadAll()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:13px;">
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- KPIs -->
+    <div class="mb-20" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:16px;">
+      <div class="card">
+        <div class="card-title">Faturamento</div>
+        <div class="card-value" id="r-revenue">R$ 0,00</div>
+        <div class="card-sub" id="r-orders">0 pedidos</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Ticket Médio</div>
+        <div class="card-value" id="r-ticket">R$ 0,00</div>
+        <div class="card-sub">por pedido</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Lucro Bruto Est.</div>
+        <div class="card-value" id="r-profit" style="color:var(--green);">R$ 0,00</div>
+        <div class="card-sub" id="r-margin">margem 0%</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Fiado a Receber</div>
+        <div class="card-value" id="r-fiado-pending" style="color:var(--red);">R$ 0,00</div>
+        <div class="card-sub">total em aberto</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Itens Vendidos</div>
+        <div class="card-value" id="r-items">0</div>
+        <div class="card-sub">unidades</div>
+      </div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="grid-2 mb-20" style="gap:16px;">
+      <div class="card">
+        <div class="section-title mb-16">Vendas por Hora do Dia</div>
+        <div class="chart-wrap"><canvas id="chart-hours"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title mb-16">Vendas por Dia da Semana</div>
+        <div class="chart-wrap"><canvas id="chart-weekday"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="grid-2 mb-20" style="gap:16px;">
+      <div class="card">
+        <div class="section-title mb-16">Faturamento por Dia</div>
+        <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title mb-16">Formas de Pagamento</div>
+        <div class="chart-wrap" style="max-height:260px;display:flex;align-items:center;justify-content:center;">
+          <canvas id="chart-payment" style="max-height:240px;max-width:240px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top sellers -->
+    <div class="grid-2 mb-20" style="gap:16px;">
+      <div class="card">
+        <div class="section-title mb-16">Mais Vendidos (quantidade)</div>
+        <div id="top-qty"></div>
+      </div>
+      <div class="card">
+        <div class="section-title mb-16">Mais Vendidos (faturamento)</div>
+        <div id="top-revenue"></div>
+      </div>
+    </div>
+
+    <!-- Sales detail table -->
+    <div class="card">
+      <div class="section-title mb-16">Detalhes das Vendas</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Mesa</th>
+              <th>Pagamento</th>
+              <th>Itens</th>
+              <th>Desconto</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="sales-detail-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js?v=3.0"></script>
+<script src="js/utils.js?v=2.3"></script>
+<script>
+let charts = {};
+
+function getDateRange() {
+  const period = document.getElementById('period-select').value;
+  const now = new Date();
+  let from, to;
+
+  if (period === 'today') {
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  } else if (period === 'yesterday') {
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    from = new Date(y.getFullYear(), y.getMonth(), y.getDate());
+    to = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59);
+  } else if (period === 'week') {
+    from = new Date(now); from.setDate(from.getDate() - 6); from.setHours(0, 0, 0, 0);
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  } else if (period === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  } else {
+    const df = document.getElementById('date-from').value;
+    const dt = document.getElementById('date-to').value;
+    from = df ? new Date(df + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
+    to = dt ? new Date(dt + 'T23:59:59') : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  }
+  return { from, to };
+}
+
+async function init() {
+  await initDB();
+  await seedInitialData();
+  const barName = await dbGetSetting('bar_name', 'Bar do Ricardo');
+  document.getElementById('bar-name').textContent = barName;
+  activePage();
+
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('date-from').value = today;
+  document.getElementById('date-to').value = today;
+
+  document.getElementById('period-select').addEventListener('change', () => {
+    document.getElementById('custom-dates').style.display =
+      document.getElementById('period-select').value === 'custom' ? 'flex' : 'none';
+  });
+
+  await loadAll();
+}
+
+async function loadAll() {
+  const { from, to } = getDateRange();
+  const allSales = await dbGetAll('sales');
+  const sales = allSales.filter(s => {
+    const d = new Date(s.createdAt);
+    return d >= from && d <= to;
+  });
+
+  const products = await dbGetAll('products');
+  const costMap = {};
+  products.forEach(p => costMap[p.id] = p.cost || 0);
+
+  // Collect sale items
+  const allItems = [];
+  for (const s of sales) {
+    const items = await getSaleItems(s.id);
+    items.forEach(i => allItems.push({ ...i, saleDate: s.createdAt }));
+  }
+
+  await loadKPIs(sales, allItems, costMap);
+  await loadHoursChart(sales);
+  await loadWeekdayChart(sales);
+  await loadDailyChart(sales, from, to);
+  await loadPaymentChart(sales);
+  await loadTopSellers(allItems);
+  await loadSalesTable(sales, allItems);
+}
+
+async function loadKPIs(sales, allItems, costMap) {
+  const revenue = sales.reduce((s, x) => s + x.total, 0);
+  const orders = sales.length;
+  const ticket = orders ? revenue / orders : 0;
+  const items = allItems.reduce((s, i) => s + i.qty, 0);
+
+  let cost = 0;
+  for (const i of allItems) {
+    cost += (costMap[i.productId] || 0) * i.qty;
+  }
+  const profit = revenue - cost;
+  const margin = revenue > 0 ? (profit / revenue * 100).toFixed(0) : 0;
+
+  // Calculate total unpaid fiado balance
+  const allFiado = await dbGetAll('fiado');
+  const fiadoPending = allFiado.filter(f => !f.paid).reduce((s, f) => s + f.amount, 0);
+
+  setText('r-revenue', fmt(revenue));
+  setText('r-orders', orders + ' pedido' + (orders !== 1 ? 's' : '') + ' no período');
+  setText('r-ticket', fmt(ticket));
+  setText('r-profit', fmt(profit));
+  setText('r-margin', 'margem ' + margin + '%');
+  setText('r-fiado-pending', fmt(fiadoPending));
+  setText('r-items', items);
+}
+
+function makeChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, config);
+}
+
+function chartDefaults() {
+  return {
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8' } },
+      y: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8' } },
+    },
+    plugins: { legend: { display: false } },
+    responsive: true,
+  };
+}
+
+async function loadHoursChart(sales) {
+  const byHour = Array(24).fill(0);
+  sales.forEach(s => { byHour[new Date(s.createdAt).getHours()] += s.total; });
+
+  const labels = [];
+  const data = [];
+  for (let h = 0; h < 24; h++) {
+    if (byHour[h] > 0 || (h >= 10 && h <= 23)) {
+      labels.push(h + 'h');
+      data.push(byHour[h]);
+    }
+  }
+
+  makeChart('chart-hours', {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'R$', data, backgroundColor: 'rgba(245,158,11,.7)', borderColor: 'rgba(245,158,11,1)', borderWidth: 1, borderRadius: 4 }] },
+    options: { ...chartDefaults(), scales: { ...chartDefaults().scales, y: { ...chartDefaults().scales.y, ticks: { color: '#94a3b8', callback: v => 'R$' + v } } } },
+  });
+}
+
+async function loadWeekdayChart(sales) {
+  const byDay = Array(7).fill(0);
+  sales.forEach(s => { byDay[new Date(s.createdAt).getDay()] += s.total; });
+
+  const colors = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+  makeChart('chart-weekday', {
+    type: 'bar',
+    data: {
+      labels: DAYS_PT,
+      datasets: [{ label: 'R$', data: byDay, backgroundColor: colors.map(c => c + 'bb'), borderColor: colors, borderWidth: 1, borderRadius: 4 }]
+    },
+    options: { ...chartDefaults(), scales: { ...chartDefaults().scales, y: { ...chartDefaults().scales.y, ticks: { color: '#94a3b8', callback: v => 'R$' + v } } } },
+  });
+}
+
+async function loadDailyChart(sales, from, to) {
+  const byDate = {};
+  const d = new Date(from);
+  while (d <= to) {
+    const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    byDate[key] = 0;
+    d.setDate(d.getDate() + 1);
+  }
+  sales.forEach(s => {
+    const key = new Date(s.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    if (key in byDate) byDate[key] += s.total;
+  });
+
+  makeChart('chart-daily', {
+    type: 'line',
+    data: {
+      labels: Object.keys(byDate),
+      datasets: [{
+        label: 'R$',
+        data: Object.values(byDate),
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,.1)',
+        tension: 0.3,
+        fill: true,
+        pointBackgroundColor: '#f59e0b',
+      }]
+    },
+    options: { ...chartDefaults(), scales: { ...chartDefaults().scales, y: { ...chartDefaults().scales.y, ticks: { color: '#94a3b8', callback: v => 'R$' + v } } } },
+  });
+}
+
+async function loadPaymentChart(sales) {
+  const byMethod = {};
+  sales.forEach(s => {
+    if (s.payments && s.payments.length > 0) {
+      s.payments.forEach(p => {
+        byMethod[p.method] = (byMethod[p.method] || 0) + p.amount;
+      });
+    } else {
+      byMethod[s.paymentMethod] = (byMethod[s.paymentMethod] || 0) + s.total;
+    }
+  });
+
+  const labels = Object.keys(byMethod).map(k => PAYMENT_LABELS[k] || k);
+  const data = Object.values(byMethod);
+  const colors = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
+
+  if (charts['chart-payment']) charts['chart-payment'].destroy();
+  const ctx = document.getElementById('chart-payment').getContext('2d');
+  charts['chart-payment'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors.slice(0, data.length), borderColor: '#1a1d27', borderWidth: 2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', padding: 12, font: { size: 12 } } },
+      }
+    },
+  });
+}
+
+async function loadTopSellers(allItems) {
+  const byProduct = {};
+  allItems.forEach(i => {
+    if (!byProduct[i.productId]) byProduct[i.productId] = { name: i.name, qty: 0, revenue: 0 };
+    byProduct[i.productId].qty += i.qty;
+    byProduct[i.productId].revenue += i.price * i.qty;
+  });
+
+  const items = Object.values(byProduct);
+  const byQty = [...items].sort((a, b) => b.qty - a.qty).slice(0, 8);
+  const byRev = [...items].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+
+  function renderTop(list, valueKey, fmtFn, containerId) {
+    const el = document.getElementById(containerId);
+    if (!list.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Sem dados</div>'; return; }
+    const max = list[0][valueKey];
+    el.innerHTML = list.map((p, i) => `
+      <div style="margin-bottom:10px;">
+        <div class="flex items-center justify-between" style="font-size:13px;margin-bottom:4px;">
+          <span style="font-weight:600;">${i+1}. ${p.name}</span>
+          <span style="color:var(--accent);font-weight:700;">${fmtFn(p[valueKey])}</span>
+        </div>
+        <div class="stock-bar">
+          <div class="stock-bar-fill" style="width:${(p[valueKey]/max*100).toFixed(0)}%;background:var(--accent);"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  renderTop(byQty, 'qty', v => v + ' un', 'top-qty');
+  renderTop(byRev, 'revenue', v => fmt(v), 'top-revenue');
+}
+
+async function loadSalesTable(sales, allItems) {
+  const itemsPerSale = {};
+  allItems.forEach(i => {
+    if (!itemsPerSale[i.saleId]) itemsPerSale[i.saleId] = { count: 0 };
+    itemsPerSale[i.saleId].count += i.qty;
+  });
+
+  const sorted = [...sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const tbody = document.getElementById('sales-detail-tbody');
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3);">Nenhuma venda no período</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sorted.map(s => {
+    let paymentDesc = '';
+    if (s.payments && s.payments.length > 0) {
+      paymentDesc = s.payments.map(p => PAYMENT_LABELS[p.method] || p.method).join(' + ');
+    } else {
+      paymentDesc = PAYMENT_LABELS[s.paymentMethod] || s.paymentMethod;
+    }
+    return `
+    <tr>
+      <td style="white-space:nowrap;">${fmtDate(s.createdAt)}</td>
+      <td>Mesa ${s.tableNum || '—'}</td>
+      <td><span class="badge badge-blue">${paymentDesc}</span></td>
+      <td>${(itemsPerSale[s.id] || {}).count || 0} itens</td>
+      <td style="color:var(--red);">${s.discount > 0 ? '- ' + fmt(s.discount) : '—'}</td>
+      <td><strong style="color:var(--accent);">${fmt(s.total)}</strong></td>
+    </tr>
+  `;}).join('');
+}
+
+init();
+</script>
+</body>
+</html>
