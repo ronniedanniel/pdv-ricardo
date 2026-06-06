@@ -196,7 +196,7 @@
   </div>
 </div>
 
-<script src="js/db.js?v=3.0"></script>
+<script src="js/db.js?v=3.1"></script>
 <script src="js/utils.js?v=2.3"></script>
 <script>
 let allCustomers = [];
@@ -318,57 +318,82 @@ async function editCustomer(id) {
 }
 
 async function saveCustomer() {
-  const name = val('customer-name').trim();
-  if (!name) { toast('Informe o nome do cliente', 'error'); return; }
-  const id = parseInt(val('customer-id')) || null;
-  
-  const active = document.getElementById('group-customer-active').style.display === 'flex'
-    ? document.getElementById('customer-active').checked
-    : true;
+  try {
+    const name = val('customer-name').trim();
+    if (!name) { toast('Informe o nome do cliente', 'error'); return; }
+    const id = parseInt(val('customer-id')) || null;
     
-  const data = { name, phone: val('customer-phone'), notes: val('customer-notes'), active };
+    const active = document.getElementById('group-customer-active').style.display === 'flex'
+      ? document.getElementById('customer-active').checked
+      : true;
+      
+    const data = { name, phone: val('customer-phone'), notes: val('customer-notes'), active };
 
-  if (id) {
-    const existing = await dbGet('customers', id);
-    await dbPut('customers', { ...existing, ...data });
-    toast('Cliente atualizado');
-  } else {
-    await dbAdd('customers', { ...data, createdAt: new Date().toISOString() });
-    toast('Cliente cadastrado');
+    if (id) {
+      const existing = await dbGet('customers', id);
+      await dbPut('customers', { ...existing, ...data });
+      toast('Cliente atualizado');
+    } else {
+      await dbAdd('customers', { ...data, createdAt: new Date().toISOString() });
+      toast('Cliente cadastrado');
+    }
+    closeModal('modal-customer');
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao salvar cliente: ' + (err.message || err), 'error');
   }
-  closeModal('modal-customer');
-  await loadAll();
 }
 
 async function deleteCustomer(id) {
-  const c = await dbGet('customers', id);
-  const balance = await getCustomerFiadoBalance(id);
-  if (balance > 0) {
-    toast('Cliente tem fiado em aberto. Quite antes de desativar.', 'error');
-    return;
+  try {
+    const c = await dbGet('customers', id);
+    const balance = await getCustomerFiadoBalance(id);
+    if (balance > 0) {
+      toast('Cliente tem fiado em aberto. Quite antes de desativar.', 'error');
+      return;
+    }
+    confirm('Deseja desativar o cliente ' + c.name + '? (Seu histórico de vendas e fiados será mantido para estatísticas)', async () => {
+      try {
+        c.active = false;
+        await dbPut('customers', c);
+        toast('Cliente desativado com sucesso');
+        await loadAll();
+      } catch (err) {
+        console.error(err);
+        toast('Erro ao desativar cliente: ' + (err.message || err), 'error');
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao carregar dados do cliente: ' + (err.message || err), 'error');
   }
-  confirm('Deseja desativar o cliente ' + c.name + '? (Seu histórico de vendas e fiados será mantido para estatísticas)', async () => {
-    c.active = false;
-    await dbPut('customers', c);
-    toast('Cliente desativado com sucesso');
-    await loadAll();
-  });
 }
 
 async function purgeCustomer() {
-  const id = parseInt(val('customer-id'));
-  if (!id) return;
-  const c = await dbGet('customers', id);
-  if (!c) return;
-  
-  const warningMsg = `ATENÇÃO: Esta ação é definitiva e irreversível!\n\nTem certeza de que deseja EXPURGAR permanentemente todas as informações e registros de histórico do cliente "${c.name}" do banco de dados?\n\nIsso excluirá fisicamente o cliente e todos os seus registros de fiado vinculados.`;
-  
-  confirm(warningMsg, async () => {
-    await dbDelete('customers', id);
-    toast('Cliente e histórico expurgados com sucesso!');
-    closeModal('modal-customer');
-    await loadAll();
-  });
+  try {
+    const id = parseInt(val('customer-id'));
+    if (!id) return;
+    const c = await dbGet('customers', id);
+    if (!c) return;
+    
+    const warningMsg = `ATENÇÃO: Esta ação é definitiva e irreversível!\n\nTem certeza de que deseja EXPURGAR permanentemente todas as informações e registros de histórico do cliente "${c.name}" do banco de dados?\n\nIsso excluirá fisicamente o cliente e todos os seus registros de fiado vinculados.`;
+    
+    confirm(warningMsg, async () => {
+      try {
+        await dbDelete('customers', id);
+        toast('Cliente e histórico expurgados com sucesso!');
+        closeModal('modal-customer');
+        await loadAll();
+      } catch (err) {
+        console.error(err);
+        toast('Erro ao expurgar cliente: ' + (err.message || err), 'error');
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao carregar dados do cliente: ' + (err.message || err), 'error');
+  }
 }
 
 async function viewFiado(customerId) {

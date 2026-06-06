@@ -222,14 +222,41 @@ async function dbGetByIndex(storeName, indexName, value) {
   }
 }
 
+let warnedActiveColumn = false;
+function showActiveColumnWarning() {
+  if (warnedActiveColumn) return;
+  warnedActiveColumn = true;
+  setTimeout(() => {
+    alert("AVISO IMPORTANTE:\n\nA coluna 'active' não foi encontrada na tabela 'customers' do seu Supabase. O sistema salvou o cliente sem essa informação para não travar.\n\nPara que o recurso de desativar clientes funcione corretamente, vá ao SQL Editor do seu painel Supabase e execute a linha:\n\nALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;");
+  }, 500);
+}
+
 async function dbAdd(storeName, data) {
   if (isSupabaseActive) {
     const copy = { ...data };
     if (!copy.id) delete copy.id;
     
-    const { data: inserted, error } = await supabaseClient.from(storeName).insert(copy).select().single();
-    if (error) throw error;
-    return inserted.id;
+    try {
+      const { data: inserted, error } = await supabaseClient.from(storeName).insert(copy).select().single();
+      if (error) throw error;
+      return inserted.id;
+    } catch (err) {
+      const isColumnError = err.code === '42703' || 
+                            (err.message && (
+                              err.message.includes('active') || 
+                              err.message.includes('column') ||
+                              err.message.includes('schema cache')
+                            ));
+      if (isColumnError && 'active' in copy) {
+        console.warn(`A coluna 'active' não existe na tabela '${storeName}'. Tentando inserir sem esta coluna...`);
+        delete copy.active;
+        const { data: inserted2, error: error2 } = await supabaseClient.from(storeName).insert(copy).select().single();
+        if (error2) throw error2;
+        showActiveColumnWarning();
+        return inserted2.id;
+      }
+      throw err;
+    }
   } else {
     return dbAddIndexedDB(storeName, data);
   }
@@ -237,10 +264,30 @@ async function dbAdd(storeName, data) {
 
 async function dbPut(storeName, data) {
   if (isSupabaseActive) {
-    const { data: upserted, error } = await supabaseClient.from(storeName).upsert(data).select().single();
-    if (error) throw error;
-    const pk = storeName === 'settings' ? upserted.key : upserted.id;
-    return pk;
+    try {
+      const { data: upserted, error } = await supabaseClient.from(storeName).upsert(data).select().single();
+      if (error) throw error;
+      const pk = storeName === 'settings' ? upserted.key : upserted.id;
+      return pk;
+    } catch (err) {
+      const isColumnError = err.code === '42703' || 
+                            (err.message && (
+                              err.message.includes('active') || 
+                              err.message.includes('column') ||
+                              err.message.includes('schema cache')
+                            ));
+      if (isColumnError && 'active' in data) {
+        console.warn(`A coluna 'active' não existe na tabela '${storeName}'. Tentando salvar sem esta coluna...`);
+        const copy = { ...data };
+        delete copy.active;
+        const { data: upserted2, error: error2 } = await supabaseClient.from(storeName).upsert(copy).select().single();
+        if (error2) throw error2;
+        showActiveColumnWarning();
+        const pk = storeName === 'settings' ? upserted2.key : upserted2.id;
+        return pk;
+      }
+      throw err;
+    }
   } else {
     return dbPutIndexedDB(storeName, data);
   }
