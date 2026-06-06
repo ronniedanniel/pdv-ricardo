@@ -415,7 +415,7 @@ async function loadSalesTable(sales, allItems) {
     return `
     <tr>
       <td style="white-space:nowrap;">${fmtDate(s.createdAt)}</td>
-      <td>Mesa ${s.tableNum || '—'}</td>
+      <td>${s.tableName || (s.tableNum ? 'Mesa ' + s.tableNum : '—')}</td>
       <td><span class="badge badge-blue">${paymentDesc}</span></td>
       <td>${(itemsPerSale[s.id] || {}).count || 0} itens</td>
       <td style="color:var(--red);">${s.discount > 0 ? '- ' + fmt(s.discount) : '—'}</td>

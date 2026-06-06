@@ -236,26 +236,41 @@ async function dbAdd(storeName, data) {
     const copy = { ...data };
     if (!copy.id) delete copy.id;
     
-    try {
-      const { data: inserted, error } = await supabaseClient.from(storeName).insert(copy).select().single();
-      if (error) throw error;
-      return inserted.id;
-    } catch (err) {
-      const isColumnError = err.code === '42703' || 
-                            (err.message && (
-                              err.message.includes('active') || 
-                              err.message.includes('column') ||
-                              err.message.includes('schema cache')
-                            ));
-      if (isColumnError && 'active' in copy) {
-        console.warn(`A coluna 'active' não existe na tabela '${storeName}'. Tentando inserir sem esta coluna...`);
-        delete copy.active;
-        const { data: inserted2, error: error2 } = await supabaseClient.from(storeName).insert(copy).select().single();
-        if (error2) throw error2;
-        showActiveColumnWarning();
-        return inserted2.id;
+    // Mapeia customerName para tableName na tabela sales se tableName não estiver preenchido
+    if (storeName === 'sales') {
+      if (!copy.tableName && copy.customerName) {
+        copy.tableName = copy.customerName;
       }
-      throw err;
+    }
+    
+    while (true) {
+      try {
+        const { data: inserted, error } = await supabaseClient.from(storeName).insert(copy).select().single();
+        if (error) throw error;
+        return inserted.id;
+      } catch (err) {
+        const isColumnError = err.code === '42703' || 
+                              (err.message && (
+                                err.message.includes('column') ||
+                                err.message.includes('schema cache')
+                              ));
+        if (isColumnError) {
+          let col = null;
+          const matchCache = err.message.match(/find the '([^']+)' column/);
+          const matchExist = err.message.match(/column [^\s]+\.([^\s]+) does not exist/);
+          
+          if (matchCache) col = matchCache[1];
+          else if (matchExist) col = matchExist[1];
+          
+          if (col && col in copy) {
+            console.warn(`A coluna '${col}' não existe na tabela '${storeName}'. Removendo do insert e tentando novamente...`);
+            delete copy[col];
+            if (col === 'active') showActiveColumnWarning();
+            continue; // Tenta novamente
+          }
+        }
+        throw err;
+      }
     }
   } else {
     return dbAddIndexedDB(storeName, data);
@@ -264,29 +279,44 @@ async function dbAdd(storeName, data) {
 
 async function dbPut(storeName, data) {
   if (isSupabaseActive) {
-    try {
-      const { data: upserted, error } = await supabaseClient.from(storeName).upsert(data).select().single();
-      if (error) throw error;
-      const pk = storeName === 'settings' ? upserted.key : upserted.id;
-      return pk;
-    } catch (err) {
-      const isColumnError = err.code === '42703' || 
-                            (err.message && (
-                              err.message.includes('active') || 
-                              err.message.includes('column') ||
-                              err.message.includes('schema cache')
-                            ));
-      if (isColumnError && 'active' in data) {
-        console.warn(`A coluna 'active' não existe na tabela '${storeName}'. Tentando salvar sem esta coluna...`);
-        const copy = { ...data };
-        delete copy.active;
-        const { data: upserted2, error: error2 } = await supabaseClient.from(storeName).upsert(copy).select().single();
-        if (error2) throw error2;
-        showActiveColumnWarning();
-        const pk = storeName === 'settings' ? upserted2.key : upserted2.id;
-        return pk;
+    const copy = { ...data };
+    
+    // Mapeia customerName para tableName na tabela sales se tableName não estiver preenchido
+    if (storeName === 'sales') {
+      if (!copy.tableName && copy.customerName) {
+        copy.tableName = copy.customerName;
       }
-      throw err;
+    }
+    
+    while (true) {
+      try {
+        const { data: upserted, error } = await supabaseClient.from(storeName).upsert(copy).select().single();
+        if (error) throw error;
+        const pk = storeName === 'settings' ? upserted.key : upserted.id;
+        return pk;
+      } catch (err) {
+        const isColumnError = err.code === '42703' || 
+                              (err.message && (
+                                err.message.includes('column') ||
+                                err.message.includes('schema cache')
+                              ));
+        if (isColumnError) {
+          let col = null;
+          const matchCache = err.message.match(/find the '([^']+)' column/);
+          const matchExist = err.message.match(/column [^\s]+\.([^\s]+) does not exist/);
+          
+          if (matchCache) col = matchCache[1];
+          else if (matchExist) col = matchExist[1];
+          
+          if (col && col in copy) {
+            console.warn(`A coluna '${col}' não existe na tabela '${storeName}'. Removendo do upsert e tentando novamente...`);
+            delete copy[col];
+            if (col === 'active') showActiveColumnWarning();
+            continue; // Tenta novamente
+          }
+        }
+        throw err;
+      }
     }
   } else {
     return dbPutIndexedDB(storeName, data);

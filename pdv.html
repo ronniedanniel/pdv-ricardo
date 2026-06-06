@@ -433,7 +433,7 @@
     <div class="modal-body" style="text-align:center;padding:20px 10px;display:flex;flex-direction:column;gap:12px;">
       <p style="font-size:14px;margin-bottom:8px;color:var(--text2);">Item adicionado ao carrinho!</p>
       <button class="btn btn-success btn-lg btn-block" onclick="quickPayBalcao()">💵 Pagar Agora</button>
-      <button class="btn btn-primary btn-lg btn-block" onclick="quickFiadoBalcao()">👤 Cobrar Fiado</button>
+      <button class="btn btn-primary btn-lg btn-block" onclick="quickFiadoBalcao()">👤 Colocar no Pendura</button>
       <button class="btn btn-secondary btn-block" onclick="closeModal('modal-quick-balcao')">🛒 Adicionar Mais Itens</button>
     </div>
   </div>
@@ -513,6 +513,33 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-quick-add-customer')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveQuickCustomer()">Salvar & Iniciar Venda</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Colocar no Pendura -->
+<div class="modal-overlay" id="modal-quick-fiado">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>Colocar no Pendura</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-quick-fiado')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px; text-align:left;">
+      <div class="card mb-16" style="background:var(--bg3);text-align:center;padding:16px;border-left:3px solid var(--red);">
+        <div style="font-size:13px;color:var(--text2);">Valor do Pendura</div>
+        <div style="font-size:28px;font-weight:700;color:var(--red);" id="quick-fiado-total">R$ 0,00</div>
+      </div>
+      
+      <div class="form-group">
+        <label>Cliente para o Pendura *</label>
+        <input type="text" id="quick-fiado-customer-input" placeholder="Digite o nome do cliente..." oninput="onQuickFiadoCustomerInput()" autocomplete="new-password">
+        <div id="quick-fiado-suggestions" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;max-height:120px;overflow-y:auto;position:relative;z-index:99;"></div>
+        <div id="quick-fiado-customer-selected" style="display:none;margin-top:6px;padding:6px 10px;margin-bottom:0;" class="alert alert-info"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-quick-fiado')">Cancelar</button>
+      <button class="btn btn-danger flex-1" onclick="finalizeQuickFiado()">✓ Confirmar Pendura</button>
     </div>
   </div>
 </div>
@@ -1513,6 +1540,11 @@ document.addEventListener('click', e => {
   if (input && box && e.target !== input && !box.contains(e.target)) {
     box.style.display = 'none';
   }
+  const quickFiadoInput = document.getElementById('quick-fiado-customer-input');
+  const quickFiadoBox = document.getElementById('quick-fiado-suggestions');
+  if (quickFiadoInput && quickFiadoBox && e.target !== quickFiadoInput && !quickFiadoBox.contains(e.target)) {
+    quickFiadoBox.style.display = 'none';
+  }
 });
 
 document.querySelectorAll('.modal-overlay').forEach(m => {
@@ -1742,56 +1774,175 @@ function quickPayBalcao() {
   openPayment();
 }
 
-function quickFiadoBalcao() {
+async function quickFiadoBalcao() {
   closeModal('modal-quick-balcao');
   
   if (!orderItems.length) { toast('Pedido vazio', 'error'); return; }
+  
+  // Se não houver comanda/pedido ativo (ex: venda rápida balcão pura), vincula ao Balcão (Mesa 0)
   if (!currentOrderId) {
-    openAssignModal('payment');
+    const tables = await dbGetAll('tables');
+    const balcao = tables.find(t => t.number === 0);
+    if (balcao) {
+      currentTableId = balcao.id;
+      currentTable = balcao;
+      const oid = await dbAdd('orders', { tableId: balcao.id, status: 'open', createdAt: new Date().toISOString() });
+      currentOrderId = oid;
+      await saveTempCartToOrder(oid);
+      orderItems = await getOrderItems(oid);
+    } else {
+      toast('Mesa de Balcão não encontrada', 'error');
+      return;
+    }
+  }
+  
+  const total = getTotal();
+  setText('quick-fiado-total', fmt(total));
+  
+  // Limpar os campos do novo modal de pendura rápida
+  selectedFiadoCustomer = null;
+  setVal('quick-fiado-customer-input', '');
+  document.getElementById('quick-fiado-customer-selected').style.display = 'none';
+  document.getElementById('quick-fiado-suggestions').style.display = 'none';
+  
+  openModal('modal-quick-fiado');
+  
+  // Focar no campo de digitação do cliente
+  setTimeout(() => {
+    const input = document.getElementById('quick-fiado-customer-input');
+    if (input) input.focus();
+  }, 100);
+}
+
+function onQuickFiadoCustomerInput() {
+  const q = val('quick-fiado-customer-input').toLowerCase();
+  const box = document.getElementById('quick-fiado-suggestions');
+  selectedFiadoCustomer = null;
+  document.getElementById('quick-fiado-customer-selected').style.display = 'none';
+  if (!q || q.length < 1) { box.style.display = 'none'; return; }
+  
+  const matches = allCustomers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 5);
+  box.style.display = '';
+  box.innerHTML = matches.map(c => `
+    <div onclick="selectQuickFiadoCustomer(${c.id}, '${c.name.replace(/'/g,"\\'")}')"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+      👤 ${c.name}
+    </div>
+  `).join('') + `
+    <div onclick="selectQuickFiadoCustomer(null, '${q}')"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;color:var(--accent);"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+      + Criar novo cliente "${val('quick-fiado-customer-input')}"
+    </div>
+  `;
+}
+
+function selectQuickFiadoCustomer(id, name) {
+  selectedFiadoCustomer = { id, name };
+  setVal('quick-fiado-customer-input', name);
+  document.getElementById('quick-fiado-suggestions').style.display = 'none';
+  const el = document.getElementById('quick-fiado-customer-selected');
+  el.style.display = '';
+  el.textContent = id ? '✓ Cliente: ' + name : '+ Novo cliente: ' + name;
+}
+
+async function finalizeQuickFiado() {
+  if (!orderItems.length) return;
+  
+  const fiadoName = val('quick-fiado-customer-input').trim();
+  if (!fiadoName) {
+    toast('Informe o nome do cliente para o pendura', 'error');
     return;
   }
   
-  isQuickFiado = true;
-  
-  // Oculta os grupos que não são de fiado
-  document.getElementById('split-calculator-group').style.display = 'none';
-  document.getElementById('payment-methods-group').style.display = 'none';
-  document.getElementById('payment-summary-card').style.display = 'none';
-  document.getElementById('transfer-row').style.display = 'none';
-
-  const total = getTotal();
-  setText('pay-total', fmt(total));
-
-  // Define apenas fiado com o valor total
-  setVal('pay-amt-dinheiro', '');
-  setVal('pay-amt-cartao_debito', '');
-  setVal('pay-amt-cartao_credito', '');
-  setVal('pay-amt-pix', '');
-  setVal('pay-amt-fiado', total.toFixed(2));
-
-  selectedFiadoCustomer = null;
-  const custName = val('customer-name-input').trim();
-  setVal('fiado-customer-input', custName);
-  if (custName) {
-    const match = allCustomers.find(c => c.name.toLowerCase() === custName.toLowerCase());
-    if (match) {
-      selectFiadoCustomer(match.id, match.name);
-    } else {
-      selectFiadoCustomer(null, custName);
-    }
-  } else {
-    document.getElementById('fiado-customer-selected').style.display = 'none';
+  if (!selectedFiadoCustomer) {
+    selectedFiadoCustomer = { id: null, name: fiadoName };
   }
-
-  // Exibe a seção do fiado
-  document.getElementById('fiado-row').style.display = '';
   
-  openModal('modal-payment');
+  const total = getTotal();
+  const subtotal = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = subtotal - total;
+  const payments = [{ method: 'fiado', amount: total }];
   
-  // Foca no campo de digitar cliente
-  setTimeout(() => {
-    document.getElementById('fiado-customer-input').focus();
-  }, 100);
+  const userStr = sessionStorage.getItem('currentUser');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const sellerId = user ? user.id : null;
+  const sellerName = user ? user.name : 'Desconhecido';
+  
+  try {
+    // 1. Criar registro de venda
+    const saleId = await dbAdd('sales', {
+      orderId: currentOrderId,
+      tableId: currentTableId,
+      tableNum: currentTable ? currentTable.number : null,
+      customerName: selectedFiadoCustomer.name,
+      total,
+      subtotal,
+      discount,
+      paymentMethod: 'fiado',
+      payments,
+      createdAt: new Date().toISOString(),
+      sellerId,
+      sellerName,
+    });
+    
+    // 2. Localizar ou criar o cliente, e registrar o fiado
+    const customer = await findOrCreateCustomer(selectedFiadoCustomer.name);
+    if (customer) {
+      await recordFiado(customer.id, customer.name, saleId, total);
+    }
+    
+    // Atualizar lista de clientes local
+    allCustomers = await dbGetAll('customers');
+    
+    // 3. Salvar itens da venda e atualizar estoque
+    for (const item of orderItems) {
+      await dbAdd('sale_items', { saleId, productId: item.productId, name: item.name, price: item.price, qty: item.qty });
+      const p = products.find(p2 => p2.id === item.productId);
+      if (p && p.minStock > 0) {
+        await updateProductStock(item.productId, -item.qty, 'sale', 'Venda #' + saleId);
+      }
+    }
+    
+    // 4. Limpar o pedido atual da mesa
+    for (const i of orderItems) {
+      await dbDelete('order_items', i.id);
+    }
+    await dbDelete('orders', currentOrderId);
+    
+    // 5. Atualizar status da mesa correspondente
+    if (currentTable) {
+      if (currentTable.type === 'client') {
+        await dbDelete('tables', currentTable.id);
+      } else {
+        await dbPut('tables', { ...currentTable, status: 'free' });
+      }
+    }
+    
+    closeModal('modal-quick-fiado');
+    toast(`Venda colocada no pendura para ${selectedFiadoCustomer.name}! Valor: ${fmt(total)}`, 'success');
+    
+    // 6. Resetar estado do PDV para novo cliente / venda limpa
+    currentOrderId = null;
+    currentTableId = null;
+    currentTable = null;
+    orderItems = [];
+    discountAmt = 0;
+    selectedFiadoCustomer = null;
+    document.getElementById('table-label').textContent = 'Selecionar Mesa';
+    document.getElementById('btn-select-table').classList.remove('has-table');
+    document.getElementById('order-time').textContent = '';
+    setVal('customer-name-input', '');
+    renderOrder();
+    
+    // Atualizar produtos locais (pelo estoque atualizado)
+    products = (await dbGetAll('products')).filter(p => p.active);
+    renderProducts();
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao registrar pendura', 'error');
+  }
 }
 
 async function pickTableNewClient() {

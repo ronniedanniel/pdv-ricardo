@@ -341,7 +341,7 @@ async function loadSessionData() {
   tbody.innerHTML = sortedSales.map(s => `
     <tr>
       <td>${fmtTime(s.createdAt)}</td>
-      <td>Mesa ${s.tableNum || '—'}</td>
+      <td>${s.tableName || (s.tableNum ? 'Mesa ' + s.tableNum : '—')}</td>
       <td><span class="badge badge-blue">${PAYMENT_LABELS[s.paymentMethod] || s.paymentMethod}</span></td>
       <td>${saleItemsMap[s.id] || 0} itens</td>
       <td style="color:var(--red);">${s.discount > 0 ? '- ' + fmt(s.discount) : '—'}</td>
