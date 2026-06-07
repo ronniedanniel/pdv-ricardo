@@ -135,21 +135,49 @@
         </div>
       </div>
 
-      <div class="section-title mb-12">Histórico de Fiado</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Itens</th>
-              <th>Valor</th>
-              <th>Situação</th>
-              <th>Quitado em</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="fiado-tbody"></tbody>
-        </table>
+      <!-- Tabs internas do cliente -->
+      <div class="tabs mb-16" id="modal-customer-tabs" style="display:flex; gap:6px;">
+        <button class="tab-btn active" id="tab-cust-fiado" onclick="setCustomerModalTab('fiado')">📋 Contas & Fiados</button>
+        <button class="tab-btn" id="tab-cust-consumption" onclick="setCustomerModalTab('consumption')">🍹 Histórico de Consumo</button>
+      </div>
+
+      <!-- Container: Aba de Fiados -->
+      <div id="cust-tab-fiado-container">
+        <div class="section-title mb-12">Histórico de Fiado (Contas a Receber)</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Itens</th>
+                <th>Valor</th>
+                <th>Situação</th>
+                <th>Quitado em</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fiado-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Container: Aba de Consumo -->
+      <div id="cust-tab-consumption-container" style="display:none;">
+        <div class="section-title mb-12">Histórico Geral de Vendas / Consumo</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Itens</th>
+                <th>Forma Pgto</th>
+                <th>Desconto</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="consumption-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -396,8 +424,82 @@ async function purgeCustomer() {
   }
 }
 
+function setCustomerModalTab(tab) {
+  const tabFiado = document.getElementById('tab-cust-fiado');
+  const tabCons = document.getElementById('tab-cust-consumption');
+  const containerFiado = document.getElementById('cust-tab-fiado-container');
+  const containerCons = document.getElementById('cust-tab-consumption-container');
+  
+  if (tab === 'fiado') {
+    tabFiado.classList.add('active');
+    tabCons.classList.remove('active');
+    containerFiado.style.display = '';
+    containerCons.style.display = 'none';
+  } else {
+    tabFiado.classList.remove('active');
+    tabCons.classList.add('active');
+    containerFiado.style.display = 'none';
+    containerCons.style.display = '';
+    renderCustomerConsumption();
+  }
+}
+
+async function renderCustomerConsumption() {
+  const c = await dbGet('customers', viewingCustomerId);
+  if (!c) return;
+  
+  const tbody = document.getElementById('consumption-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3);">Carregando histórico de consumo...</td></tr>';
+  
+  try {
+    const sales = await dbGetAll('sales');
+    const customerSales = sales.filter(s => 
+      (s.customerName && s.customerName.toLowerCase() === c.name.toLowerCase()) || 
+      (s.tableName && s.tableName.toLowerCase() === c.name.toLowerCase())
+    );
+    
+    // Ordenar do mais novo para o mais antigo
+    customerSales.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    
+    if (!customerSales.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3);">Nenhum consumo registrado</td></tr>';
+      return;
+    }
+    
+    const rows = await Promise.all(customerSales.map(async s => {
+      const items = await getSaleItems(s.id);
+      const itemsStr = items.length > 0 
+        ? items.map(i => `${i.qty}x ${i.name}`).join('<br>') 
+        : '<em style="color:var(--text3);">Sem itens</em>';
+      
+      let paymentDesc = '';
+      if (s.payments && s.payments.length > 0) {
+        paymentDesc = s.payments.map(p => PAYMENT_LABELS[p.method] || p.method).join(' + ');
+      } else {
+        paymentDesc = PAYMENT_LABELS[s.paymentMethod] || s.paymentMethod;
+      }
+      
+      return `
+        <tr>
+          <td style="white-space:nowrap;">${fmtDate(s.createdAt)}</td>
+          <td><div style="font-size:12px;line-height:1.3;white-space:normal;max-width:220px;">${itemsStr}</div></td>
+          <td><span class="badge badge-gray">${paymentDesc}</span></td>
+          <td style="color:var(--red);">${s.discount > 0 ? '- ' + fmt(s.discount) : '—'}</td>
+          <td><strong style="color:var(--accent);">${fmt(s.total)}</strong></td>
+        </tr>
+      `;
+    }));
+    
+    tbody.innerHTML = rows.join('');
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--red);">Erro ao carregar histórico de consumo</td></tr>';
+  }
+}
+
 async function viewFiado(customerId) {
   viewingCustomerId = customerId;
+  setCustomerModalTab('fiado');
   const c = await dbGet('customers', customerId);
   const balance = await getCustomerFiadoBalance(customerId);
   const records = await getCustomerFiado(customerId);
