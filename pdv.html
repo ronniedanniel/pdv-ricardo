@@ -525,9 +525,16 @@
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-quick-fiado')">✕</button>
     </div>
     <div class="modal-body" style="padding:16px; text-align:left;">
-      <div class="card mb-16" style="background:var(--bg3);text-align:center;padding:16px;border-left:3px solid var(--red);">
+      <div class="card mb-16" style="background:var(--bg3);text-align:center;padding:16px;border-left:3px solid var(--red);margin-bottom:12px;">
         <div style="font-size:13px;color:var(--text2);">Valor do Pendura</div>
         <div style="font-size:28px;font-weight:700;color:var(--red);" id="quick-fiado-total">R$ 0,00</div>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="margin-bottom:6px;">Itens no Pendura</label>
+        <div id="quick-fiado-items" style="background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 12px; max-height:90px; overflow-y:auto; font-size:12px; display:flex; flex-direction:column; gap:4px;">
+          <!-- Items will be inserted here dynamically -->
+        </div>
       </div>
       
       <div class="form-group">
@@ -1798,6 +1805,17 @@ async function quickFiadoBalcao() {
   
   const total = getTotal();
   setText('quick-fiado-total', fmt(total));
+  
+  // Preencher os itens no modal de pendura rápida
+  const itemsContainer = document.getElementById('quick-fiado-items');
+  if (itemsContainer) {
+    itemsContainer.innerHTML = orderItems.map(item => `
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px; margin-bottom:2px;">
+        <span><strong>${item.qty}x</strong> ${item.name}</span>
+        <span style="color:var(--text3);">${fmt(item.price * item.qty)}</span>
+      </div>
+    `).join('');
+  }
   
   // Limpar os campos do novo modal de pendura rápida
   selectedFiadoCustomer = null;
