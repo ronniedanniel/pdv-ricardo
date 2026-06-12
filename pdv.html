@@ -666,7 +666,7 @@ function renderProducts() {
   }
   grid.innerHTML = list.map(p => {
     const cat = catMap[p.categoryId] || {};
-    const outOfStock = p.stock <= 0 && p.minStock > 0;
+    const outOfStock = isProductOutOfStock(p, products);
     return `<div class="product-btn ${outOfStock ? 'out-of-stock' : ''}" onclick="${outOfStock ? '' : 'addProduct(' + p.id + ')'}">
       <div class="p-icon">${cat.icon || '📦'}</div>
       <div class="p-name">${p.name}</div>
@@ -1336,10 +1336,7 @@ async function finalizeSale() {
   for (const item of orderItems) {
     await dbAdd('sale_items', { saleId, productId: item.productId, name: item.name, price: item.price, qty: item.qty });
     // Decrement stock
-    const p = products.find(p2 => p2.id === item.productId);
-    if (p && p.minStock > 0) {
-      await updateProductStock(item.productId, -item.qty, 'sale', 'Venda #' + saleId);
-    }
+    await deductStockForProduct(item.productId, item.qty, saleId);
   }
 
   // Clear order
@@ -1917,10 +1914,7 @@ async function finalizeQuickFiado() {
     // 3. Salvar itens da venda e atualizar estoque
     for (const item of orderItems) {
       await dbAdd('sale_items', { saleId, productId: item.productId, name: item.name, price: item.price, qty: item.qty });
-      const p = products.find(p2 => p2.id === item.productId);
-      if (p && p.minStock > 0) {
-        await updateProductStock(item.productId, -item.qty, 'sale', 'Venda #' + saleId);
-      }
+      await deductStockForProduct(item.productId, item.qty, saleId);
     }
     
     // 4. Limpar o pedido atual da mesa

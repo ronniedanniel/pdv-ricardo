@@ -487,8 +487,15 @@ async function getProductStock(productId) {
 async function updateProductStock(productId, delta, type, reason) {
   const product = await dbGet('products', productId);
   if (!product) return;
-  product.stock = Math.max(0, (product.stock || 0) + delta);
-  await dbPut('products', product);
+  
+  if (product.parentProductId && product.conversionFactor > 0) {
+    product.unitsInOpen = Math.max(0, (product.unitsInOpen || 0) + delta);
+    await dbPut('products', product);
+  } else {
+    product.stock = Math.max(0, (product.stock || 0) + delta);
+    await dbPut('products', product);
+  }
+  
   await dbAdd('stock_movements', {
     productId,
     productName: product.name,
@@ -497,6 +504,70 @@ async function updateProductStock(productId, delta, type, reason) {
     reason: reason || '',
     date: new Date().toISOString(),
   });
+}
+
+async function deductStockForProduct(productId, qty, saleId) {
+  const p = await dbGet('products', productId);
+  if (!p) return;
+  
+  // Caso 1: O produto é um Combo (Kit/Combo)
+  if (p.components && p.components.length > 0) {
+    for (const comp of p.components) {
+      // Deduz recursivamente o estoque de cada componente multiplicando pela quantidade vendida do combo
+      await deductStockForProduct(comp.productId, comp.qty * qty, saleId);
+    }
+    return;
+  }
+  
+  // Caso 2: O produto é Varejo Vinculado (Cigarro Varejo -> Cigarro Maço)
+  if (p.parentProductId && p.conversionFactor > 0) {
+    let unitsNeeded = qty;
+    let unitsInOpen = p.unitsInOpen || 0;
+    
+    if (unitsInOpen >= unitsNeeded) {
+      // Se as unidades abertas cobrirem a necessidade, apenas reduz do maço aberto
+      unitsInOpen -= unitsNeeded;
+      p.unitsInOpen = unitsInOpen;
+      await dbPut('products', p);
+      
+      await dbAdd('stock_movements', {
+        productId: p.id,
+        productName: p.name,
+        type: 'sale',
+        qty: unitsNeeded,
+        reason: `Consumido do maço aberto (Venda #${saleId})`,
+        date: new Date().toISOString(),
+      });
+    } else {
+      // Se não cobrir, precisa abrir novos maços (deduz do produto pai)
+      let remainingNeeded = unitsNeeded - unitsInOpen;
+      let packsToOpen = Math.ceil(remainingNeeded / p.conversionFactor);
+      
+      // Deduz os maços fechados do produto pai
+      await deductStockForProduct(p.parentProductId, packsToOpen, saleId);
+      
+      // Recalcula o novo saldo de avulsos no maço aberto
+      unitsInOpen = (packsToOpen * p.conversionFactor) + unitsInOpen - unitsNeeded;
+      p.unitsInOpen = unitsInOpen;
+      await dbPut('products', p);
+      
+      await dbAdd('stock_movements', {
+        productId: p.id,
+        productName: p.name,
+        type: 'sale',
+        qty: unitsNeeded,
+        reason: `Abriu ${packsToOpen} maço(s) (Venda #${saleId})`,
+        date: new Date().toISOString(),
+      });
+    }
+    return;
+  }
+  
+  // Caso 3: Produto Regular
+  // Apenas desconta se o controle de estoque estiver ativo (minStock > 0)
+  if (p.minStock > 0) {
+    await updateProductStock(p.id, -qty, 'sale', 'Venda #' + saleId);
+  }
 }
 
 async function getLowStockProducts() {

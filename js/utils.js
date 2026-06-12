@@ -233,3 +233,57 @@ if (document.readyState === 'loading') {
 } else {
   initAuthAndMenu();
 }
+
+// --- HELPERS DE CONTROLE DE ESTOQUE (COMBOS E VAREJO VINCULADO) ---
+
+function calculateComboStock(p, allProducts) {
+  if (!p.components || p.components.length === 0) return 0;
+  let minAvail = Infinity;
+  for (const comp of p.components) {
+    const compProduct = allProducts.find(x => x.id === parseInt(comp.productId));
+    if (!compProduct) continue;
+    // Se o componente não controla estoque (minStock === 0), ele é "infinito" para o combo
+    if (compProduct.minStock === 0) continue;
+    const avail = Math.floor((compProduct.stock || 0) / comp.qty);
+    if (avail < minAvail) minAvail = avail;
+  }
+  return minAvail === Infinity ? 'Ilimitado' : minAvail;
+}
+
+function isProductOutOfStock(p, allProducts) {
+  // Caso 1: Varejo Vinculado (cigarro avulso)
+  if (p.parentProductId && p.conversionFactor > 0) {
+    const parent = allProducts.find(x => x.id === parseInt(p.parentProductId));
+    if (!parent) return false;
+    const parentOutOfStock = parent.stock <= 0 && parent.minStock > 0;
+    const openPackEmpty = (p.unitsInOpen || 0) <= 0;
+    return parentOutOfStock && openPackEmpty;
+  }
+  
+  // Caso 2: Combo (Kit)
+  if (p.components && p.components.length > 0) {
+    return p.components.some(comp => {
+      const compProduct = allProducts.find(x => x.id === parseInt(comp.productId));
+      if (!compProduct) return false;
+      // O combo fica sem estoque se qualquer componente que controla estoque estiver zerado
+      return isProductOutOfStock(compProduct, allProducts) || ((compProduct.stock || 0) < comp.qty && compProduct.minStock > 0);
+    });
+  }
+  
+  // Caso 3: Produto Regular
+  return (p.stock || 0) <= 0 && p.minStock > 0;
+}
+
+function formatProductStock(p, allProducts) {
+  if (p.components && p.components.length > 0) {
+    const comboStock = calculateComboStock(p, allProducts);
+    return `${comboStock} un <span style="font-size:11px;color:var(--text3);">(Combo)</span>`;
+  }
+  if (p.parentProductId && p.conversionFactor > 0) {
+    const parent = allProducts.find(x => x.id === parseInt(p.parentProductId));
+    const parentStock = parent ? parent.stock : 0;
+    const parentUnit = parent ? parent.unit : 'maço';
+    return `<strong>${p.unitsInOpen || 0}</strong> avulsos <span style="font-size:11px;color:var(--text3);">(+${parentStock} ${parentUnit}s)</span>`;
+  }
+  return `<strong>${p.stock || 0}</strong> ${p.unit}`;
+}

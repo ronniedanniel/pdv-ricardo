@@ -231,12 +231,30 @@ async function renderStock() {
 
   tbody.innerHTML = list.map(p => {
     const cat = catMap[p.categoryId] || {};
-    const pct = p.minStock > 0 ? Math.min(100, (p.stock / (p.minStock * 3)) * 100) : 100;
-    const low = p.minStock > 0 && p.stock <= p.minStock;
-    const critical = p.minStock > 0 && p.stock === 0;
+    
+    // Calcula o estoque efetivo para fins de barra de progresso e alertas
+    let effectiveStock = p.stock || 0;
+    const isCombo = p.components && p.components.length > 0;
+    if (isCombo) {
+      const calc = calculateComboStock(p, products);
+      effectiveStock = calc === 'Ilimitado' ? 999 : calc;
+    } else if (p.parentProductId && p.conversionFactor > 0) {
+      effectiveStock = p.unitsInOpen || 0;
+    }
+
+    const pct = p.minStock > 0 ? Math.min(100, (effectiveStock / (p.minStock * 3)) * 100) : 100;
+    const low = p.minStock > 0 && effectiveStock <= p.minStock;
+    const critical = p.minStock > 0 && effectiveStock === 0;
     const barColor = critical ? 'var(--red)' : low ? 'var(--accent)' : 'var(--green)';
     const status = critical ? '<span class="badge badge-red">Zerado</span>' : low ? '<span class="badge badge-yellow">Baixo</span>' : '<span class="badge badge-green">OK</span>';
-    const custo = p.cost * p.stock;
+    const custo = p.cost * (isCombo ? 0 : (p.parentProductId ? 0 : p.stock));
+
+    const actionButtons = isCombo ? `<span style="font-size:11px;color:var(--text3);">Estoque automático</span>` : `
+      <div class="flex" style="gap:4px;">
+        <button class="btn btn-success btn-sm" onclick="openMovModalFor('in', ${p.id})" title="Entrada">+</button>
+        <button class="btn btn-danger btn-sm" onclick="openMovModalFor('waste', ${p.id})" title="Saída">−</button>
+      </div>
+    `;
 
     return `<tr>
       <td>
@@ -246,16 +264,11 @@ async function renderStock() {
         </div>
       </td>
       <td><span class="badge badge-gray">${cat.name || '—'}</span></td>
-      <td><strong style="font-size:15px;">${p.stock}</strong> <span style="color:var(--text3);font-size:12px;">${p.unit}</span></td>
+      <td><span style="font-size:13px;">${formatProductStock(p, products)}</span></td>
       <td style="color:var(--text3);">${p.minStock} ${p.unit}</td>
       <td>${status}</td>
       <td style="color:var(--text2);">${fmt(custo)}</td>
-      <td>
-        <div class="flex" style="gap:4px;">
-          <button class="btn btn-success btn-sm" onclick="openMovModalFor('in', ${p.id})" title="Entrada">+</button>
-          <button class="btn btn-danger btn-sm" onclick="openMovModalFor('waste', ${p.id})" title="Saída">−</button>
-        </div>
-      </td>
+      <td>${actionButtons}</td>
     </tr>`;
   }).join('');
 }
@@ -304,8 +317,12 @@ async function openMovModalFor(type, productId) {
   document.getElementById('mov-btn').className = 'btn btn-sm btn-' + (type === 'in' ? 'success' : type === 'waste' ? 'danger' : 'primary');
 
   const sel = document.getElementById('mov-product');
-  const activeProds = products.filter(p => p.active);
-  sel.innerHTML = '<option value="">Selecione...</option>' + activeProds.map(p => `<option value="${p.id}">${p.name} (estoque: ${p.stock} ${p.unit})</option>`).join('');
+  // Filtra apenas produtos ativos e que NÃO são combos
+  const activeProds = products.filter(p => p.active && (!p.components || p.components.length === 0));
+  sel.innerHTML = '<option value="">Selecione...</option>' + activeProds.map(p => {
+    const stockDesc = p.parentProductId ? `${p.unitsInOpen || 0} avulsos` : `${p.stock || 0} ${p.unit}`;
+    return `<option value="${p.id}">${p.name} (estoque: ${stockDesc})</option>`;
+  }).join('');
 
   if (productId) {
     setVal('mov-product', productId);
@@ -325,7 +342,10 @@ function showCurrentStock(productId) {
   const info = document.getElementById('current-stock-info');
   if (p) {
     info.style.display = '';
-    setText('current-stock-val', p.stock + ' ' + p.unit);
+    const stockDesc = p.parentProductId 
+      ? `${p.unitsInOpen || 0} avulsos vinculados` 
+      : `${p.stock || 0} ${p.unit}`;
+    setText('current-stock-val', stockDesc);
   } else {
     info.style.display = 'none';
   }

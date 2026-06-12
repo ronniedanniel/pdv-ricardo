@@ -1,8 +1,12 @@
 -- SCRIPT DE CONFIGURAÇÃO DE TABELAS DO SUPABASE - BAR DO RICARDO
 -- Copie e cole este script no SQL Editor do seu projeto Supabase e clique em RUN.
 
--- NOTA PARA PROJETOS EXISTENTES: Se você já rodou este script antes, rode apenas a linha abaixo no SQL Editor:
+-- NOTA PARA PROJETOS EXISTENTES: Se você já rodou este script antes, rode apenas as linhas abaixo no SQL Editor do Supabase:
 -- ALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;
+-- ALTER TABLE products ADD COLUMN IF NOT EXISTS components JSONB DEFAULT '[]';
+-- ALTER TABLE products ADD COLUMN IF NOT EXISTS "parentProductId" INT REFERENCES products(id) ON DELETE SET NULL;
+-- ALTER TABLE products ADD COLUMN IF NOT EXISTS "conversionFactor" INT DEFAULT 1;
+-- ALTER TABLE products ADD COLUMN IF NOT EXISTS "unitsInOpen" INT DEFAULT 0;
 
 -- 1. Tabela de Categorias
 CREATE TABLE IF NOT EXISTS categories (
@@ -22,7 +26,11 @@ CREATE TABLE IF NOT EXISTS products (
   stock INT DEFAULT 0,
   "minStock" INT DEFAULT 0,
   unit TEXT,
-  active BOOLEAN DEFAULT TRUE
+  active BOOLEAN DEFAULT TRUE,
+  components JSONB DEFAULT '[]',
+  "parentProductId" INT REFERENCES products(id) ON DELETE SET NULL,
+  "conversionFactor" INT DEFAULT 1,
+  "unitsInOpen" INT DEFAULT 0
 );
 
 -- 3. Tabela de Mesas/Comandas

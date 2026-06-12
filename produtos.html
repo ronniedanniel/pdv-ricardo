@@ -80,6 +80,14 @@
         <label>Nome do Produto *</label>
         <input type="text" id="product-name" placeholder="Ex: Cerveja Long Neck">
       </div>
+      <div class="form-group">
+        <label>Tipo de Produto</label>
+        <select id="product-type" onchange="toggleTypeSections()">
+          <option value="normal">Produto Normal (Estoque Direto)</option>
+          <option value="combo">Combo / Kit (Composto por outros produtos)</option>
+          <option value="linked">Varejo Vinculado (Cigarro Avulso, etc.)</option>
+        </select>
+      </div>
       <div class="form-row form-row-2">
         <div class="form-group">
           <label>Categoria *</label>
@@ -107,7 +115,7 @@
           <input type="number" id="product-cost" min="0" step="0.01" placeholder="0,00">
         </div>
       </div>
-      <div class="form-row form-row-2">
+      <div class="form-row form-row-2" id="row-stock-fields">
         <div class="form-group">
           <label>Estoque Atual</label>
           <input type="number" id="product-stock" min="0" placeholder="0">
@@ -117,7 +125,59 @@
           <input type="number" id="product-minstock" min="0" placeholder="0">
         </div>
       </div>
-      <div class="form-group">
+      
+      <!-- Seção: Componentes de Combo -->
+      <div id="section-combo-components" style="display:none; border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+        <h4 style="font-size:13px; font-weight:600; margin-bottom:10px; color:var(--accent);">Componentes do Combo</h4>
+        <div class="form-row" style="grid-template-columns: 2fr 1fr auto; align-items: flex-end; gap: 8px; margin-bottom:12px;">
+          <div class="form-group" style="margin:0;">
+            <label>Produto Componente</label>
+            <select id="combo-component-product"></select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Qtd</label>
+            <input type="number" id="combo-component-qty" min="1" value="1">
+          </div>
+          <button type="button" class="btn btn-primary" onclick="addComboComponent()" style="padding: 9px 12px; height: 38px;">+</button>
+        </div>
+        <div class="table-wrap" style="max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:var(--bg3);">
+          <table style="font-size:12px;">
+            <thead>
+              <tr>
+                <th style="padding:6px 8px;">Produto</th>
+                <th style="padding:6px 8px; width:70px;">Qtd</th>
+                <th style="padding:6px 8px; width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="combo-components-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Seção: Vínculo de Estoque -->
+      <div id="section-linked-product" style="display:none; border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+        <h4 style="font-size:13px; font-weight:600; margin-bottom:10px; color:var(--accent);">Vínculo de Estoque (Fração/Varejo)</h4>
+        <div class="form-group">
+          <label>Produto Pai (Ex: Cigarro Maço) *</label>
+          <select id="linked-parent-product">
+            <option value="">Selecione o produto pai...</option>
+          </select>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label>Fator de Conversão *</label>
+            <input type="number" id="linked-conversion-factor" min="1" placeholder="Ex: 20">
+            <small style="color:var(--text3); font-size:11px;">Quantos varejos vêm no pai.</small>
+          </div>
+          <div class="form-group">
+            <label>Unidades no Maço Aberto atualmente</label>
+            <input type="number" id="linked-units-open" min="0" placeholder="0">
+            <small style="color:var(--text3); font-size:11px;">Avulsos abertos no balcão.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:14px;">
         <label>
           <input type="checkbox" id="product-active" checked style="width:auto;margin-right:6px;">
           Produto ativo (visível no PDV)
@@ -230,7 +290,7 @@ function renderProducts() {
       <td><strong style="color:var(--accent);">${fmt(p.price)}</strong></td>
       <td style="color:var(--text3);">${fmt(p.cost)}</td>
       <td><span class="badge ${margin !== '—' && parseInt(margin) >= 40 ? 'badge-green' : 'badge-yellow'}">${margin}%</span></td>
-      <td><span class="${lowStock ? 'badge badge-red' : ''}">${p.stock} ${p.unit}</span></td>
+      <td><span class="${lowStock ? 'badge badge-red' : ''}">${formatProductStock(p, list)}</span></td>
       <td style="color:var(--text3);">${p.minStock} ${p.unit}</td>
       <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? 'Ativo' : 'Inativo'}</span></td>
       <td>
@@ -244,6 +304,74 @@ function renderProducts() {
   }).join('');
 }
 
+let editingComponents = [];
+
+function toggleTypeSections() {
+  const type = val('product-type');
+  const rowStock = document.getElementById('row-stock-fields');
+  const secCombo = document.getElementById('section-combo-components');
+  const secLinked = document.getElementById('section-linked-product');
+  
+  if (type === 'normal') {
+    rowStock.style.display = '';
+    secCombo.style.display = 'none';
+    secLinked.style.display = 'none';
+  } else if (type === 'combo') {
+    rowStock.style.display = 'none';
+    secCombo.style.display = '';
+    secLinked.style.display = 'none';
+  } else if (type === 'linked') {
+    rowStock.style.display = 'none';
+    secCombo.style.display = 'none';
+    secLinked.style.display = '';
+  }
+}
+
+function renderComboComponentsTable() {
+  const tbody = document.getElementById('combo-components-tbody');
+  if (editingComponents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:10px;">Nenhum componente adicionado</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = editingComponents.map((comp, idx) => {
+    const p = products.find(x => x.id === parseInt(comp.productId));
+    const name = p ? p.name : `Produto #${comp.productId}`;
+    return `
+      <tr>
+        <td style="padding:6px 8px;"><strong>${name}</strong></td>
+        <td style="padding:6px 8px;">${comp.qty}</td>
+        <td style="padding:6px 8px; text-align:right;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="removeComboComponent(${idx})" style="color:var(--red); padding:2px 6px;">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function addComboComponent() {
+  const productId = parseInt(val('combo-component-product'));
+  const qty = parseInt(val('combo-component-qty'));
+  
+  if (!productId) { toast('Selecione um produto para adicionar', 'error'); return; }
+  if (isNaN(qty) || qty <= 0) { toast('Informe uma quantidade válida', 'error'); return; }
+  
+  // Verifica se o componente já está adicionado
+  const existing = editingComponents.find(c => parseInt(c.productId) === productId);
+  if (existing) {
+    existing.qty += qty;
+  } else {
+    editingComponents.push({ productId, qty });
+  }
+  
+  renderComboComponentsTable();
+}
+
+function removeComboComponent(index) {
+  editingComponents.splice(index, 1);
+  renderComboComponentsTable();
+}
+
 function openProductModal(id) {
   document.getElementById('modal-product-title').textContent = id ? 'Editar Produto' : 'Novo Produto';
   setVal('product-id', '');
@@ -252,10 +380,27 @@ function openProductModal(id) {
   setVal('product-cost', '');
   setVal('product-stock', '0');
   setVal('product-minstock', '0');
+  setVal('product-type', 'normal');
+  setVal('linked-conversion-factor', '20');
+  setVal('linked-units-open', '0');
   document.getElementById('product-active').checked = true;
 
   const catSel = document.getElementById('product-cat');
   catSel.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+
+  // Carrega lista de produtos ativos (excluindo ele mesmo se for edição)
+  const activeProds = products.filter(p => p.active && (!id || p.id !== id));
+  
+  const compSel = document.getElementById('combo-component-product');
+  compSel.innerHTML = activeProds.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  
+  const parentSel = document.getElementById('linked-parent-product');
+  parentSel.innerHTML = '<option value="">Selecione o produto pai...</option>' + 
+    activeProds.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+  editingComponents = [];
+  renderComboComponentsTable();
+  toggleTypeSections();
 
   openModal('modal-product');
 }
@@ -267,30 +412,93 @@ async function editProduct(id) {
   setVal('product-id', id);
   setVal('product-name', p.name);
   setVal('product-price', p.price);
-  setVal('product-cost', p.cost);
-  setVal('product-stock', p.stock);
-  setVal('product-minstock', p.minStock);
+  setVal('product-cost', p.cost || '');
+  setVal('product-stock', p.stock || 0);
+  setVal('product-minstock', p.minStock || 0);
   setVal('product-unit', p.unit);
   setVal('product-cat', p.categoryId);
   document.getElementById('product-active').checked = p.active;
   document.getElementById('modal-product-title').textContent = 'Editar Produto';
+  
+  if (p.components && p.components.length > 0) {
+    setVal('product-type', 'combo');
+    editingComponents = [...p.components];
+    renderComboComponentsTable();
+  } else if (p.parentProductId) {
+    setVal('product-type', 'linked');
+    setVal('linked-parent-product', p.parentProductId);
+    setVal('linked-conversion-factor', p.conversionFactor || 1);
+    setVal('linked-units-open', p.unitsInOpen || 0);
+  } else {
+    setVal('product-type', 'normal');
+  }
+  
+  toggleTypeSections();
 }
 
 async function saveProduct() {
-  const name = val('product-name');
+  const name = val('product-name').trim();
   const price = parseFloat(val('product-price'));
   const cost = parseFloat(val('product-cost')) || 0;
-  const stock = parseInt(val('product-stock')) || 0;
-  const minStock = parseInt(val('product-minstock')) || 0;
   const categoryId = parseInt(val('product-cat'));
   const unit = val('product-unit') || 'un';
   const active = document.getElementById('product-active').checked;
   const id = parseInt(val('product-id')) || null;
+  const type = val('product-type');
 
   if (!name) { toast('Informe o nome do produto', 'error'); return; }
   if (isNaN(price) || price < 0) { toast('Informe o preço', 'error'); return; }
 
-  const data = { categoryId, name, price, cost, stock, minStock, unit, active };
+  let stock = 0;
+  let minStock = 0;
+  let components = [];
+  let parentProductId = null;
+  let conversionFactor = 1;
+  let unitsInOpen = 0;
+
+  if (type === 'normal') {
+    stock = parseInt(val('product-stock')) || 0;
+    minStock = parseInt(val('product-minstock')) || 0;
+  } else if (type === 'combo') {
+    if (editingComponents.length === 0) {
+      toast('Adicione pelo menos um componente para o combo', 'error');
+      return;
+    }
+    components = editingComponents;
+  } else if (type === 'linked') {
+    const parentId = parseInt(val('linked-parent-product'));
+    const factor = parseInt(val('linked-conversion-factor'));
+    const openUnits = parseInt(val('linked-units-open')) || 0;
+    
+    if (!parentId) {
+      toast('Selecione o produto pai do vínculo de estoque', 'error');
+      return;
+    }
+    if (isNaN(factor) || factor <= 0) {
+      toast('Informe um fator de conversão válido maior que zero', 'error');
+      return;
+    }
+    
+    parentProductId = parentId;
+    conversionFactor = factor;
+    unitsInOpen = openUnits;
+  }
+
+  const data = { 
+    categoryId, 
+    name, 
+    price, 
+    cost, 
+    stock, 
+    minStock, 
+    unit, 
+    active,
+    components,
+    parentProductId,
+    conversionFactor,
+    unitsInOpen
+  };
+
   if (id) {
     await dbPut('products', { ...data, id });
     toast('Produto atualizado');
