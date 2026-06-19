@@ -72,7 +72,51 @@ graph TD
 
 ---
 
+## Novas Ideias Detalhadas para Implementação
+
+### 1. Notificação Imediata a cada Lançamento no Pendura
+*   **Lógica:** Toda vez que uma venda é finalizada no fiado (balcão ou mesa), o frontend detecta o número de telefone do cliente. Se houver telefone, dispara uma requisição POST oculta para o gateway.
+*   **Template da Mensagem:**
+    ```text
+    *Bar do Ricardo - Pendura Lançado* 📝
+    
+    Olá, [Nome do Cliente]!
+    Registramos no seu pendura os seguintes itens:
+    • [Quantidade]x [Nome do Item] ([Preço Unitário])
+    
+    💰 *Valor lançado hoje:* [Valor da Compra]
+    📉 *Seu saldo pendente atualizado:* *[Saldo Geral]*
+    
+    Agradecemos a preferência! 🍻
+    ```
+
+### 2. Relatório Diário Consolidado (Extrato Geral)
+Existem dois caminhos técnicos para enviar o resumo diário de gastos:
+*   **Caminho A (Disparo Manual em Lote - Simples):**
+    *   Criamos uma aba "Cobrança" na tela de Clientes ou Caixa.
+    *   Um botão `"✉️ Disparar Lembretes de Consumo"` faz o JavaScript ler no banco local/Supabase todos os clientes ativos com saldo devedor.
+    *   O sistema monta o texto com o extrato detalhado de tudo o que eles compraram nas datas em aberto e faz disparos sequenciais em segundo plano usando a API de WhatsApp.
+*   **Caminho B (Agendador Automático na Nuvem - Avançado):**
+    *   Como os dados estão no Supabase, criamos uma **Supabase Edge Function** associada a um **Supabase Vault/Cron Job** (agenda recorrente).
+    *   Todos os dias (ex: às 23:30h), o script roda na nuvem do Supabase, calcula as pendências de cada devedor, monta o extrato e faz a chamada HTTP para o gateway de WhatsApp.
+    *   *Vantagem:* Funciona de forma 100% autônoma, sem necessidade do computador do bar estar ligado ou do site aberto.
+
+### 3. Geração de QR Code & Copia e Cola PIX
+Dá para fazer com que o cliente receba os dados de pagamento direto no WhatsApp.
+*   **Pix Copia e Cola (Texto):**
+    *   Escrevemos um gerador de payload Pix estático em Javascript no próprio frontend.
+    *   Ele monta a string EMV oficial utilizando a chave Pix do estabelecimento (CNPJ, celular, email, ou chave aleatória) e o valor total acumulado do cliente.
+    *   A mensagem inclui o código no formato:
+        `Para pagar, copie a linha abaixo e cole no app do seu banco:`
+        `00020101021226830014br.gov.bcb.pix0136minha-chave-pix-123...`
+*   **QR Code (Imagem):**
+    *   A string do Pix Copia e Cola gerada é enviada para uma API gratuita de geração de QR Codes por URL (ex: `https://api.qrserver.com/v1/create-qr-code/?data=URL_ENCODED_PIX_PAYLOAD`).
+    *   Enviaremos essa URL no formato de mensagem de mídia (imagem) do gateway do WhatsApp.
+    *   O cliente recebe o texto explicativo e a imagem do QR Code para leitura imediata.
+
+---
+
 ## Próximos Passos (Quando decidir implementar)
-1. Escolher se usará a **Opção A** (gratuita e semi-automática) ou a **Opção B** (automática via gateway).
-2. Se escolher a Opção B, contratar ou hospedar a API de gateway escolhida e obter os dados de acesso (URL e Token da instância).
-3. Solicitar ao assistente a execução do plano de código correspondente à escolha.
+1.  **Escolher o Gateway de WhatsApp:** Contratar ou hospedar a API de gateway escolhida (Z-API, Evolution API, etc.) e cadastrar o celular nela via QR Code.
+2.  **Configurar Chaves:** Salvar o `Token` e a `URL da API` nas configurações do PDV.
+3.  **Habilitar os Recursos:** Solicitar ao assistente a codificação dos módulos de Geração de Pix, Lógica de Mensagem por Venda, Disparo de Relatório e Migração de Configurações no Supabase.
